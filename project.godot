@@ -1,0 +1,9 @@
+; Minimal project so `godot --headless --path godot --script` has a context to
+; run in. Nothing here is a game; the spike is the script.
+
+config_version=5
+
+[application]
+
+config/name="haiven-godot-spike"
+config/features=PackedStringArray("4.4")
