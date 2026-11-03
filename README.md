@@ -231,3 +231,29 @@ GODOT_BIN=/path/to/godot GODOT_EXPECTED_VERSION=4.5.1 make check-godot-ci
 timeout. CI checks the engine version before import. See the
 [Godot command-line reference](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html)
 for `--headless`, `--import`, and `--script`.
+
+## Releases
+
+Pushing a `v<version>` tag runs `.github/workflows/release.yml`, which publishes
+three assets to the GitHub release for that tag:
+
+- `haiven-godot-addon-<version>.zip`: `addons/haiven/`; unzip it into a Godot
+  project root.
+- `haiven-godot-dotnet-<version>.zip`: `Haiven.Godot.dll` and
+  `Haiven.Sdk.Core.dll` with their `.pdb` files, built from `Haiven.Godot.csproj`
+  in Release against the haiven-sdk-unity and haiven-sdk-dotnet commits pinned in
+  the workflow.
+- `SHA256SUMS`: checksums of both zips (`sha256sum -c SHA256SUMS`).
+
+The tag must match `version` in `addons/haiven/plugin.cfg`, or the build fails
+before anything is published. Bump `plugin.cfg` on `main` first, then tag that
+commit. A version with a pre-release suffix (`v1.2.3-rc.1`) is published as a
+GitHub pre-release. Pull requests against `main` and manual runs build the same
+assets as a workflow artifact and do not publish.
+
+To build the assets locally (Python 3.9+, `git`, and a .NET SDK):
+
+```sh
+python3 ci/package_release.py --out build/dist \
+  --sdk-unity ../haiven-sdk-unity --sdk-dotnet ../haiven-sdk-dotnet
+```
