@@ -154,16 +154,11 @@ request id per step and the addon mints ids internally; driving its `next_id`
 Callable from a variable set before each step is enough. No per-call id argument
 was added — no game would ever pass one.
 
-**The fixture lives in Python, not GDScript.** Godot cannot read a subprocess's
-stdout, and the fixture announces its bound port on exactly that. So
-`scripts/check-godot.py` builds and runs `haiven-backend/cmd/wsfixture`, reads
-the announce line and passes the endpoints in as environment; GDScript keeps
-only the part that is about the protocol. The stage skips loudly without the
-backend checkout or Go, like the rest of the live tier, and the harness
-recomputes the expected scenario count from the suite document rather than
-trusting the number the runner reports about itself — a waiver that swallowed a
-scenario fails the stage instead of going quietly green on a suite that stopped
-testing anything.
+**The live fixture is not in this repository.** `conformance_test.gd` expects a
+process that prints its bound port on stdout. Godot cannot read that stream,
+and the program that started `haiven-backend/cmd/wsfixture` is not in this
+tree, so `conformance_test.gd` is not a standalone check. The headless scripts
+below are.
 
 ## The .NET flavour
 
@@ -194,41 +189,44 @@ default exchange. The protocol/session objects remain plain `RefCounted`s.
 
 ## Running it
 
-```
-make check        # from the repository root
-```
-
-`make check` skips loudly without `godot`, and skips just as loudly when the
-editor on `PATH` is not the pinned version — an Arch 4.7.2 is not a run this
-project is measured on. `scripts/check-godot.py` holds that pin as
-`PINNED_VERSION`, which is also what `GODOT_EXPECTED_VERSION` defaults to, so
-the dedicated target refuses a wrong editor up front instead of failing later
-inside the import. `make check-godot-ci` requires the editor and Python 3: it
-fails on a missing engine, a wrong version, import/script errors, timeout, or
-missing completion records (13 protocol, 15 session, and 34 handoff assertions). Each run
-imports a temporary clean project so an existing editor cache cannot hide an
-import failure. Logs remain in `build/godot-results/`, including on failure.
-
-The `Godot editor` CI job runs on every PR and main push with the official
-Godot **4.5.1 stable** Linux editor, pinned by release URL and SHA-256 digest.
-The official 4.7.2 binary reported `Parameter "singleton" is null` during this
-project's headless import, so it is not the CI pin.
-It has a ten-minute job limit, a 120-second limit per engine stage, and always
-uploads logs. There is no engine-availability skip in this job. Repository
-branch protection can require the `Godot editor` status check.
-
-`make check-godot-dotnet` is separate from the GDScript engine stages. It builds
-the addon against the pinned Godot .NET SDK and skips loudly without `dotnet`;
-`make check-csharp` exercises the shared session state machine without an engine.
-
-To reproduce with an explicit editor:
+This repository has no Makefile. `ci/check_editor.py` imports a clean copy of
+this project and requires each headless script's completion line. The measured
+editor is Godot **4.5.1 stable**. Godot 4.7.2 is not: its headless import
+reports `Parameter "singleton" is null`.
 
 ```sh
-GODOT_BIN=/path/to/godot GODOT_EXPECTED_VERSION=4.5.1 make check-godot-ci
+python3 ci/check_editor.py
 ```
 
-`GODOT_LOG_DIR` and `GODOT_TIMEOUT_SECONDS` override the log location and per-stage
-timeout. CI checks the engine version before import. See the
+`GODOT_BIN` selects the editor (default: `godot` on `PATH`).
+`GODOT_EXPECTED_VERSION` defaults to `4.5.1`. `GODOT_LOG_DIR` and
+`GODOT_TIMEOUT_SECONDS` override the log directory and the per-stage timeout.
+A missing editor, a wrong version, an import failure, a script error, a
+timeout, or a missing completion line fails the run. Logs stay in
+`build/godot-results/`.
+
+The three scripts, and the line each must print once:
+
+```sh
+godot --headless --path . --import
+godot --headless --path . --script protocol_test.gd   # HAIVEN_TEST_PASS protocol 13
+godot --headless --path . --script session_test.gd    # HAIVEN_TEST_PASS session 15
+godot --headless --path . --script handoff_test.gd    # HAIVEN_TEST_PASS handoff 34
+```
+
+`conformance_test.gd` is not one of these checks.
+
+`.github/workflows/editor.yml` runs `ci/check_editor.py` on pull requests,
+manual dispatch, and `v*` tags. It downloads the official 4.5.1 stable Linux
+editor and checks the SHA-256. The job limit is 15 minutes, each stage 120
+seconds, and logs are uploaded even on failure. There is no
+engine-availability skip.
+
+`.github/workflows/release.yml` builds the addon and .NET zips. That is the
+dotnet build for this repository; there is no separate C# Makefile target.
+`python3 ci/package_release.py` is the local form. See Releases below.
+
+See the
 [Godot command-line reference](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html)
 for `--headless`, `--import`, and `--script`.
 
