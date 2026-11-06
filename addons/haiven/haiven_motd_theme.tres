@@ -1,0 +1,35 @@
+[gd_resource type="Theme" load_steps=2 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(0.075, 0.094, 0.133, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.247, 0.318, 0.424, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+
+[resource]
+VBoxContainer/constants/separation = 8
+HBoxContainer/constants/separation = 10
+"HaivenMotdPanel/base_type" = &"PanelContainer"
+"HaivenMotdPanel/styles/panel" = SubResource("StyleBox_panel")
+"HaivenMotdContent/base_type" = &"VBoxContainer"
+"HaivenMotdMessage/base_type" = &"VBoxContainer"
+"HaivenMotdActions/base_type" = &"HBoxContainer"
+"HaivenMotdTitle/base_type" = &"Label"
+"HaivenMotdTitle/colors/font_color" = Color(0.925, 0.957, 1, 1)
+"HaivenMotdTitle/font_sizes/font_size" = 20
+"HaivenMotdBody/base_type" = &"Label"
+"HaivenMotdBody/colors/font_color" = Color(0.871, 0.91, 0.969, 1)
+"HaivenMotdStatus/base_type" = &"Label"
+"HaivenMotdStatus/colors/font_color" = Color(0.647, 0.714, 0.812, 1)
+"HaivenMotdPrimaryAction/base_type" = &"Button"
+"HaivenMotdSecondaryAction/base_type" = &"Button"

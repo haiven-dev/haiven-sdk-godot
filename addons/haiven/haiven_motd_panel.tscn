@@ -1,0 +1,67 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://addons/haiven/haiven_motd_panel.gd" id="1"]
+[ext_resource type="Theme" path="res://addons/haiven/haiven_motd_theme.tres" id="2"]
+
+[node name="HaivenMotdPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(320, 0)
+theme = ExtResource("2")
+theme_type_variation = &"HaivenMotdPanel"
+script = ExtResource("1")
+
+[node name="Content" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_type_variation = &"HaivenMotdContent"
+
+[node name="Status" type="Label" parent="Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HaivenMotdStatus"
+autowrap_mode = 2
+
+[node name="Retry" type="Button" parent="Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"HaivenMotdSecondaryAction"
+text = "Retry"
+
+[node name="Message" type="VBoxContainer" parent="Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"HaivenMotdMessage"
+
+[node name="Title" type="Label" parent="Content/Message"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HaivenMotdTitle"
+text = "Message of the day"
+autowrap_mode = 2
+
+[node name="Body" type="Label" parent="Content/Message"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HaivenMotdBody"
+autowrap_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="Content/Message"]
+layout_mode = 2
+theme_type_variation = &"HaivenMotdActions"
+
+[node name="Action" type="Button" parent="Content/Message/Actions"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"HaivenMotdPrimaryAction"
+text = "Learn more"
+
+[node name="Dismiss" type="Button" parent="Content/Message/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HaivenMotdSecondaryAction"
+text = "Dismiss"
+
+[connection signal="pressed" from="Content/Retry" to="." method="_on_retry_pressed"]
+[connection signal="pressed" from="Content/Message/Actions/Action" to="." method="_on_action_pressed"]
+[connection signal="pressed" from="Content/Message/Actions/Dismiss" to="." method="_on_dismiss_pressed"]
