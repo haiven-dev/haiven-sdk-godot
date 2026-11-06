@@ -19,8 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 PINNED_VERSION = "4.5.1"
 STAGES = (
     ("protocol", ["--script", "protocol_test.gd"], "HAIVEN_TEST_PASS protocol 13"),
-    ("session", ["--script", "session_test.gd"], "HAIVEN_TEST_PASS session 15"),
-    ("handoff", ["--script", "handoff_test.gd"], "HAIVEN_TEST_PASS handoff 34"),
+    ("session", ["--script", "session_test.gd"], "HAIVEN_TEST_PASS session 18"),
+    ("handoff", ["--script", "handoff_test.gd"], "HAIVEN_TEST_PASS handoff 60"),
+    ("chat", ["--script", "chat_test.gd"], "HAIVEN_TEST_PASS chat 19"),
+    ("rest", ["--script", "rest_api_test.gd"], "HAIVEN_TEST_PASS rest 14"),
+    ("identity", ["--script", "identity_test.gd"], "HAIVEN_TEST_PASS identity 65"),
+    ("rewards", ["--script", "rewards_test.gd"], "HAIVEN_TEST_PASS rewards 58"),
+    ("ws", ["--script", "ws_api_test.gd"], "HAIVEN_TEST_PASS ws 15"),
+    ("contracts", ["--script", "contracts_test.gd"], "HAIVEN_TEST_PASS contracts 4"),
+    ("vocabulary", ["--script", "vocabulary_test.gd"], "HAIVEN_TEST_PASS vocabulary 12"),
+    ("analytics", ["--script", "analytics_test.gd"], "HAIVEN_TEST_PASS analytics 42"),
 )
 
 

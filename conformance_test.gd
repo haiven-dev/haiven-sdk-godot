@@ -1,7 +1,7 @@
 # Runner #3 of the published gaming corpus, and the first one driven through an
 # addon rather than through a raw socket.
 #
-# `ts/test/conformance.test.ts` and `csharp/Haiven.Sdk.Conformance` both drive a
+# `sdks/js/test/conformance.test.ts` and `sdks/dotnet/Haiven.Sdk.Conformance` both drive a
 # bare transcript client on purpose — a bug in the binding must not be able to
 # mask a server assertion. This one deliberately does the opposite and drives
 # `addons/haiven`, because the question #sdkconformance names is not "does the
@@ -11,18 +11,19 @@
 # hand-written frames. This answers it the only way that settles it: the real
 # published suite, against the real backend, through the real addon.
 #
-# This script is not a standalone check. It expects a live fixture process,
-# started outside Godot, to pass its endpoints in the environment. Godot cannot
-# read a subprocess's stdout, and the program that builds
-# `haiven-backend/cmd/wsfixture` is not in this repository. The checks that do
-# run here are protocol_test.gd, session_test.gd, and handoff_test.gd.
+# The fixture is owned by `scripts/check-godot.py`, which builds and starts
+# `haiven-api/cmd/wsfixture`, reads its announced endpoints and passes them
+# in as environment. Godot cannot read a subprocess's stdout, and the announce
+# line is how the fixture publishes its port — so the process lifecycle lives
+# where it can be observed and GDScript keeps only the part that is about the
+# protocol.
 
 extends SceneTree
 
 const Protocol := preload("res://addons/haiven/haiven_protocol.gd")
 const Session := preload("res://addons/haiven/haiven_session.gd")
 
-## This runner's name in the corpus, taken from `gaming/v0/profiles/godot.yaml`.
+## This runner's name in the corpus, taken from `spec/targets/gaming/godot.yaml`.
 const RUNNER := "godot-headless"
 
 ## The published target profile this runner is.
