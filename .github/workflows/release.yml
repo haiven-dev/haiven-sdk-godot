@@ -1,9 +1,11 @@
 name: Release
 
 # A pushed v* tag builds the release assets and publishes them to the GitHub
-# release for that tag. A manual dispatch, or a pull request against main,
-# builds the same assets and keeps them only as a workflow artifact; neither
-# creates or edits a release (the publish job runs only for tag pushes).
+# release for that tag: source archive, addon zip, portable .NET assemblies,
+# and Linux, Windows, and macOS players. A manual dispatch, or a pull request
+# against main, builds the same assets and keeps them only as workflow
+# artifacts; neither creates or edits a release (the publish job runs only
+# for tag pushes). The players are exported from the Linux runner.
 on:
   push:
     tags: ['v*']
@@ -111,19 +113,117 @@ jobs:
           path: ${{ runner.temp }}/dist/
           if-no-files-found: error
 
+  export:
+    name: Export desktop players
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out haiven-sdk-godot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT_NAME" = push ] && [ "$REF_TYPE" = tag ]; then
+            version="${REF_NAME#v}"
+          elif [ -n "$INPUT_VERSION" ]; then
+            version="$INPUT_VERSION"
+          else
+            version="$(sed -n 's/^version="\(.*\)"$/\1/p' addons/haiven/plugin.cfg)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Exporting version $version"
+
+      - name: Cache export templates
+        id: templates
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: build/godot-export-templates
+          key: godot-export-templates-4.5.1-stable-1998af37f1387684e2c211cdb483daf492fc64dc6b12096bddcdca25b6910c86
+
+      - name: Install pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          archive="$RUNNER_TEMP/godot/editor.zip"
+          curl --fail --location --retry 3 --max-time 180 \
+            https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip \
+            --output "$archive"
+          echo "02ec53d1cc7dbb9cc6355393c61b9ab43d1244751a124f10248a4802830788cd  $archive" | sha256sum --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Install pinned export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="build/godot-export-templates"
+          if [ ! -f "$dest/linux_release.x86_64" ]; then
+            mkdir -p "$RUNNER_TEMP/godot"
+            archive="$RUNNER_TEMP/godot/templates.tpz"
+            curl --fail --location --retry 3 --max-time 600 \
+              https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz \
+              --output "$archive"
+            echo "1998af37f1387684e2c211cdb483daf492fc64dc6b12096bddcdca25b6910c86  $archive" | sha256sum --check
+            rm -rf "$dest"
+            mkdir -p "$dest"
+            unzip -q "$archive" -d "$RUNNER_TEMP/godot/templates-src"
+            mv "$RUNNER_TEMP/godot/templates-src/templates/"* "$dest/"
+          fi
+          test -f "$dest/linux_release.x86_64"
+          test -f "$dest/windows_release_x86_64.exe"
+          test -f "$dest/macos.zip"
+          share="${HOME}/.local/share/godot/export_templates"
+          mkdir -p "$share"
+          rm -rf "${share}/4.5.1.stable"
+          ln -s "${GITHUB_WORKSPACE}/build/godot-export-templates" "${share}/4.5.1.stable"
+
+      - name: Export Linux, Windows, and macOS
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 ci/export_players.py \
+            --version "$VERSION" \
+            --out "$RUNNER_TEMP/players" \
+            --godot "$GODOT_BIN"
+          (cd "$RUNNER_TEMP/players" && sha256sum -c SHA256SUMS)
+
+      - name: Upload players as workflow artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: haiven-sdk-godot-players-${{ steps.version.outputs.version }}
+          path: ${{ runner.temp }}/players/*.zip
+          if-no-files-found: error
+
   publish:
     name: Publish GitHub release
-    needs: build
+    needs: [build, export]
     if: github.event_name == 'push' && github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: Download assets
+      - name: Download source and assembly assets
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: haiven-sdk-godot-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Download desktop players
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: haiven-sdk-godot-players-${{ needs.build.outputs.version }}
           path: dist
 
       - name: Create or update the release
@@ -133,8 +233,11 @@ jobs:
           TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
+          set -euo pipefail
           sha256sum -c SHA256SUMS
-          assets=(haiven-godot-addon-"$VERSION".zip haiven-godot-dotnet-"$VERSION".zip SHA256SUMS)
+          sha256sum -- *.zip > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          assets=(./*.zip SHA256SUMS)
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             # Re-run of a tag that already has a release: replace the assets.
             gh release upload "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber

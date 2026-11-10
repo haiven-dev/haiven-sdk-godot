@@ -1,5 +1,6 @@
-; Minimal project so `godot --headless --path godot --script` has a context to
-; run in. Nothing here is a game; the spike is the script.
+; Minimal project so `godot --headless --path . --script` has a context to
+; run in. export/main.tscn exists only so the desktop export presets have a
+; main scene. Nothing here is a game.
 
 config_version=5
 
@@ -7,3 +8,8 @@ config_version=5
 
 config/name="haiven-godot-spike"
 config/features=PackedStringArray("4.4")
+run/main_scene="res://export/main.tscn"
+
+[rendering]
+
+textures/vram_compression/import_etc2_astc=true

@@ -3,12 +3,14 @@
 
 Produces, in --out:
 
+  haiven-sdk-godot-<version>-source.zip
+                                     git-tracked files, paths preserved
   haiven-godot-addon-<version>.zip   addons/haiven/ (git-tracked files only),
                                      laid out to unzip into a Godot project root
   haiven-godot-dotnet-<version>.zip  Haiven.Godot.dll + Haiven.Sdk.Core.dll
                                      (and their .pdb/.xml when produced) from
                                      `dotnet build -c Release Haiven.Godot.csproj`
-  SHA256SUMS                         sha256sum-compatible digests of both zips
+  SHA256SUMS                         sha256sum-compatible digests of the zips
 
 The version must equal addons/haiven/plugin.cfg's `version`; the script fails
 otherwise, so a tag cannot publish assets that report a different version.
@@ -90,6 +92,15 @@ def write_zip(dest: Path, entries: list[tuple[str, Path]]) -> None:
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             zf.writestr(info, source.read_bytes())
+
+
+def build_source_zip(version: str, out: Path) -> Path:
+    files = tracked_files(REPO)
+    if not files:
+        fail("git ls-files found nothing to archive")
+    dest = out / f"haiven-sdk-godot-{version}-source.zip"
+    write_zip(dest, [(name, REPO / name) for name in files])
+    return dest
 
 
 def build_addon_zip(version: str, out: Path) -> Path:
@@ -214,7 +225,7 @@ def main() -> None:
         fail(f"output directory {out} is not empty")
     out.mkdir(parents=True, exist_ok=True)
 
-    assets = [build_addon_zip(version, out)]
+    assets = [build_source_zip(version, out), build_addon_zip(version, out)]
     if not args.skip_dotnet:
         if not args.sdk_unity or not args.sdk_dotnet:
             fail("--sdk-unity and --sdk-dotnet are required unless --skip-dotnet")

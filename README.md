@@ -233,15 +233,22 @@ for `--headless`, `--import`, and `--script`.
 ## Releases
 
 Pushing a `v<version>` tag runs `.github/workflows/release.yml`, which publishes
-three assets to the GitHub release for that tag:
+these assets to the GitHub release for that tag:
 
+- `haiven-sdk-godot-<version>-source.zip`: the git-tracked tree.
 - `haiven-godot-addon-<version>.zip`: `addons/haiven/`; unzip it into a Godot
   project root.
 - `haiven-godot-dotnet-<version>.zip`: `Haiven.Godot.dll` and
   `Haiven.Sdk.Core.dll` with their `.pdb` files, built from `Haiven.Godot.csproj`
   in Release against the haiven-sdk-unity and haiven-sdk-dotnet commits pinned in
-  the workflow.
-- `SHA256SUMS`: checksums of both zips (`sha256sum -c SHA256SUMS`).
+  the workflow. The assemblies are portable; they are not a per-OS player.
+- `haiven-sdk-godot-linux-x64-<version>.zip`,
+  `haiven-sdk-godot-windows-x64-<version>.zip`, and
+  `haiven-sdk-godot-macos-<version>.zip`: standard Godot 4.5.1 players exported
+  on the Linux runner. The macOS app is not signed or notarized, and the Windows
+  exe is not signed. `export/main.tscn` exists so export has a main scene; this
+  repository is not a game. The players do not include the .NET assemblies.
+- `SHA256SUMS`: checksums of the zips (`sha256sum -c SHA256SUMS`).
 
 The tag must match `version` in `addons/haiven/plugin.cfg`, or the build fails
 before anything is published. Bump `plugin.cfg` on `main` first, then tag that
@@ -254,4 +261,11 @@ To build the assets locally (Python 3.9+, `git`, and a .NET SDK):
 ```sh
 python3 ci/package_release.py --out build/dist \
   --sdk-unity ../haiven-sdk-unity --sdk-dotnet ../haiven-sdk-dotnet
+```
+
+Desktop players also need the Godot 4.5.1 editor and its standard export
+templates (the workflow pins both by URL and SHA-256):
+
+```sh
+python3 ci/export_players.py --out build/players --godot /path/to/Godot_v4.5.1-stable_linux.x86_64
 ```
