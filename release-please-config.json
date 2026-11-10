@@ -12,7 +12,8 @@
     ".": {
       "package-name": "haiven-sdk-godot",
       "initial-version": "0.0.1",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["addons/haiven/plugin.cfg"]
     }
   }
 }

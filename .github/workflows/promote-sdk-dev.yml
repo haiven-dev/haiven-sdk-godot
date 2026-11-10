@@ -64,6 +64,13 @@ jobs:
             exit 1
           fi
 
+          # origin/main..origin/sdk-dev is a promotion only when main is already
+          # in sdk-dev. Otherwise the range relists commits main already has.
+          if ! git merge-base --is-ancestor origin/main origin/sdk-dev; then
+            echo "main is not contained in sdk-dev; reconcile sdk-dev before promoting" >&2
+            exit 1
+          fi
+
           commit_count="$(git rev-list --count origin/main..origin/sdk-dev)"
           if [[ "$commit_count" == 0 ]]; then
             echo "sdk-dev has no commits to promote" >&2
@@ -84,9 +91,20 @@ jobs:
             echo "the tag and GitHub release."
             echo
             echo "BEGIN_COMMIT_OVERRIDE"
-            git log --reverse \
-              --format='BEGIN_NESTED_COMMIT%n%s%nEND_NESTED_COMMIT' \
-              origin/main..origin/sdk-dev
+            # Subjects only, plus breaking and Release-As footers. Raw %B can
+            # exceed the body-size guard. %(trailers) drops BREAKING CHANGE:
+            # because the key contains a space. A blank line keeps each footer
+            # out of the subject so release-please parses the bump.
+            while IFS= read -r sha; do
+              echo "BEGIN_NESTED_COMMIT"
+              git log -1 --format='%s' "$sha"
+              footers="$(git log -1 --format='%b' "$sha" | grep -E '^(BREAKING CHANGE:|BREAKING-CHANGE:|Release-As:)' || true)"
+              if [[ -n "$footers" ]]; then
+                echo
+                printf '%s\n' "$footers"
+              fi
+              echo "END_NESTED_COMMIT"
+            done < <(git log --reverse --format='%H' origin/main..origin/sdk-dev)
             echo "END_COMMIT_OVERRIDE"
             echo
             echo "After the release PR merges, reset sdk-dev to main with a force-with-lease"
@@ -157,6 +175,29 @@ jobs:
           fi
 
           echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+
+          # A later dispatch would otherwise leave the previous promote/sdk-dev-*
+          # pull request open under the same title.
+          while IFS=$'\t' read -r number head; do
+            [[ -n "$number" ]] || continue
+            if [[ "$head" =~ ^promote/sdk-dev-[0-9a-f]{40}$ && "$head" != "$PROMOTION_BRANCH" ]]; then
+              gh api --method PATCH \
+                "repos/$GITHUB_REPOSITORY/pulls/$number" \
+                -f state=closed \
+                --silent
+              gh api --method POST \
+                "repos/$GITHUB_REPOSITORY/issues/$number/comments" \
+                -f body="Superseded by ${PROMOTION_BRANCH}." \
+                --silent
+            fi
+          done < <(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --base main \
+            --limit 100 \
+            --json number,headRefName \
+            --jq '.[] | [.number, .headRefName] | @tsv')
+
           gh pr view "$pr_number" \
             --repo "$GITHUB_REPOSITORY" \
             --json url,baseRefName,headRefName,headRefOid,mergeable,reviewDecision
