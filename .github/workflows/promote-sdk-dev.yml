@@ -8,8 +8,9 @@ name: promote sdk-dev
 # approval. The expected SHA makes each dispatch an exact, reviewable action.
 #
 # The pull request head is a disposable branch named for that sdk-dev SHA.
-# delete_branch_on_merge may delete that head. This workflow never merges and
-# never deletes or resets sdk-dev.
+# delete_branch_on_merge may delete that head. A later dispatch closes every
+# other open promote/sdk-dev-* pull request so a stale head cannot merge.
+# This workflow never merges and never deletes or resets sdk-dev.
 on:
   workflow_dispatch:
     inputs:
@@ -31,15 +32,21 @@ jobs:
     steps:
       - name: Mint promotion token
         id: promotion-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ vars.HAIVEN_RELEASE_APP_ID }}
           private-key: ${{ secrets.HAIVEN_RELEASE_APP_PRIVATE_KEY }}
           owner: haiven-dev
           repositories: haiven-sdk-godot
+          # Leave permission-* unset. Those inputs replace the installation
+          # set, and permission-workflows fails this mint: haiven-release
+          # (app 4888060) does not request workflows. Defaults stay contents,
+          # issues, metadata, and pull_requests until an org owner adds
+          # Workflows on that app.
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # Depth 0 already fetches every heads ref, including main and sdk-dev.
           fetch-depth: 0
           token: ${{ steps.promotion-token.outputs.token }}
 
@@ -49,10 +56,6 @@ jobs:
           EXPECTED_SDK_DEV_SHA: ${{ inputs.expected_sdk_dev_sha }}
         run: |
           set -euo pipefail
-          git fetch --no-tags origin \
-            +refs/heads/main:refs/remotes/origin/main \
-            +refs/heads/sdk-dev:refs/remotes/origin/sdk-dev
-
           main_sha="$(git rev-parse origin/main)"
           sdk_dev_sha="$(git rev-parse origin/sdk-dev)"
           if [[ ! "$EXPECTED_SDK_DEV_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -63,9 +66,6 @@ jobs:
             echo "sdk-dev moved: expected $EXPECTED_SDK_DEV_SHA, found $sdk_dev_sha" >&2
             exit 1
           fi
-
-          # origin/main..origin/sdk-dev is a promotion only when main is already
-          # in sdk-dev. Otherwise the range relists commits main already has.
           if ! git merge-base --is-ancestor origin/main origin/sdk-dev; then
             echo "main is not contained in sdk-dev; reconcile sdk-dev before promoting" >&2
             exit 1
@@ -91,20 +91,23 @@ jobs:
             echo "the tag and GitHub release."
             echo
             echo "BEGIN_COMMIT_OVERRIDE"
-            # Subjects only, plus breaking and Release-As footers. Raw %B can
-            # exceed the body-size guard. %(trailers) drops BREAKING CHANGE:
-            # because the key contains a space. A blank line keeps each footer
-            # out of the subject so release-please parses the bump.
-            while IFS= read -r sha; do
+            # Raw %B does not fit the pull request body limit. git trailers
+            # drop "BREAKING CHANGE" because of the space, so keep the
+            # subject and any breaking or Release-As line ourselves.
+            commit_shas="$(git rev-list --reverse origin/main..origin/sdk-dev)"
+            while IFS= read -r commit_sha; do
+              [[ -z "$commit_sha" ]] && continue
+              subject="$(git log -1 --format='%s' "$commit_sha")"
+              commit_body="$(git log -1 --format='%b' "$commit_sha")"
+              footers="$(printf '%s\n' "$commit_body" | grep -E '^(BREAKING CHANGE:|BREAKING-CHANGE:|Release-As:)' || true)"
               echo "BEGIN_NESTED_COMMIT"
-              git log -1 --format='%s' "$sha"
-              footers="$(git log -1 --format='%b' "$sha" | grep -E '^(BREAKING CHANGE:|BREAKING-CHANGE:|Release-As:)' || true)"
+              printf '%s\n' "$subject"
               if [[ -n "$footers" ]]; then
                 echo
                 printf '%s\n' "$footers"
               fi
               echo "END_NESTED_COMMIT"
-            done < <(git log --reverse --format='%H' origin/main..origin/sdk-dev)
+            done <<< "$commit_shas"
             echo "END_COMMIT_OVERRIDE"
             echo
             echo "After the release PR merges, reset sdk-dev to main with a force-with-lease"
@@ -143,10 +146,20 @@ jobs:
             exit 1
           fi
 
-          # Same SHA republishes this disposable ref. A different tip is left
+          # Same SHA republishes this disposable ref. Any other tip is left
           # untouched: this workflow does not reset branches, including sdk-dev.
-          if ! git push origin "${SDK_DEV_SHA}:refs/heads/${PROMOTION_BRANCH}"; then
-            echo "failed to publish ${PROMOTION_BRANCH} at ${SDK_DEV_SHA}" >&2
+          remote_tip="$(git ls-remote origin "refs/heads/${PROMOTION_BRANCH}" | awk 'NR == 1 { print $1 }')"
+          if [[ -n "$remote_tip" && ! "$remote_tip" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "unexpected remote tip for ${PROMOTION_BRANCH}: ${remote_tip}" >&2
+            exit 1
+          fi
+          if [[ -n "$remote_tip" && "$remote_tip" != "$SDK_DEV_SHA" ]]; then
+            echo "refusing to move ${PROMOTION_BRANCH}: remote is ${remote_tip}, not ${SDK_DEV_SHA}" >&2
+            exit 1
+          fi
+          if ! push_output="$(git push origin "${SDK_DEV_SHA}:refs/heads/${PROMOTION_BRANCH}" 2>&1)"; then
+            echo "failed to publish ${PROMOTION_BRANCH} at ${SDK_DEV_SHA}; the remote tip matches or is absent, so this is not a branch mismatch" >&2
+            printf '%s\n' "$push_output" >&2
             exit 1
           fi
 
@@ -157,14 +170,7 @@ jobs:
             --head "$PROMOTION_BRANCH" \
             --json number \
             --jq '.[0].number // empty')"
-
-          if [[ -n "$pr_number" ]]; then
-            gh api --method PATCH \
-              "repos/$GITHUB_REPOSITORY/pulls/$pr_number" \
-              -f title='chore: promote sdk-dev to main' \
-              -F body=@"$RUNNER_TEMP/sdk-dev-promotion.md" \
-              --silent
-          else
+          if [[ ! "$pr_number" =~ ^[0-9]+$ ]]; then
             pr_number="$(gh api --method POST \
               "repos/$GITHUB_REPOSITORY/pulls" \
               -f base=main \
@@ -172,32 +178,40 @@ jobs:
               -f title='chore: promote sdk-dev to main' \
               -F body=@"$RUNNER_TEMP/sdk-dev-promotion.md" \
               --jq .number)"
+          else
+            gh api --method PATCH \
+              "repos/$GITHUB_REPOSITORY/pulls/$pr_number" \
+              -f title='chore: promote sdk-dev to main' \
+              -F body=@"$RUNNER_TEMP/sdk-dev-promotion.md" \
+              --silent
+          fi
+          if [[ ! "$pr_number" =~ ^[0-9]+$ ]]; then
+            echo "promotion pull request number is missing" >&2
+            exit 1
           fi
 
-          echo "number=$pr_number" >> "$GITHUB_OUTPUT"
-
-          # A later dispatch would otherwise leave the previous promote/sdk-dev-*
-          # pull request open under the same title.
-          while IFS=$'\t' read -r number head; do
-            [[ -n "$number" ]] || continue
-            if [[ "$head" =~ ^promote/sdk-dev-[0-9a-f]{40}$ && "$head" != "$PROMOTION_BRANCH" ]]; then
-              gh api --method PATCH \
-                "repos/$GITHUB_REPOSITORY/pulls/$number" \
-                -f state=closed \
-                --silent
-              gh api --method POST \
-                "repos/$GITHUB_REPOSITORY/issues/$number/comments" \
-                -f body="Superseded by ${PROMOTION_BRANCH}." \
-                --silent
+          # Close every other open promotion PR. Merging a stale SHA would
+          # make the next override repeat commits that main already has.
+          stale_prs="$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=main&per_page=100" \
+            --jq '.[] | select(.head.ref | test("^promote/sdk-dev-[0-9a-f]{40}$")) | select(.base.ref == "main") | [.number, .head.ref] | @tsv')"
+          while IFS=$'\t' read -r stale_number stale_head; do
+            [[ -z "$stale_number" ]] && continue
+            if [[ "$stale_head" == "$PROMOTION_BRANCH" || "$stale_number" == "$pr_number" ]]; then
+              continue
             fi
-          done < <(gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state open \
-            --base main \
-            --limit 100 \
-            --json number,headRefName \
-            --jq '.[] | [.number, .headRefName] | @tsv')
+            if [[ ! "$stale_number" =~ ^[0-9]+$ || ! "$stale_head" =~ ^promote/sdk-dev-[0-9a-f]{40}$ ]]; then
+              echo "refusing to close unexpected pull request: ${stale_number} ${stale_head}" >&2
+              exit 1
+            fi
+            gh api --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/pulls/${stale_number}" \
+              -f state=closed \
+              --silent
+            echo "closed superseded promotion PR #${stale_number} (${stale_head})"
+          done <<< "$stale_prs"
 
+          echo "number=$pr_number" >> "$GITHUB_OUTPUT"
           gh pr view "$pr_number" \
             --repo "$GITHUB_REPOSITORY" \
             --json url,baseRefName,headRefName,headRefOid,mergeable,reviewDecision
@@ -211,6 +225,17 @@ jobs:
           PROMOTION_BRANCH: ${{ steps.promotion.outputs.promotion_branch }}
           BODY_BYTES: ${{ steps.promotion.outputs.body_bytes }}
         run: |
+          set -euo pipefail
+          missing=0
+          for required in PR_NUMBER MAIN_SHA SDK_DEV_SHA COMMIT_COUNT PROMOTION_BRANCH BODY_BYTES; do
+            if [[ -z "${!required}" ]]; then
+              echo "promotion receipt is missing ${required}" >&2
+              missing=1
+            fi
+          done
+          if (( missing != 0 )); then
+            exit 1
+          fi
           {
             echo "## sdk-dev promotion"
             echo
