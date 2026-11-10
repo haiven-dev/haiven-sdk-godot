@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-v-in-tag": true,
+  "include-component-in-tag": false,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "bootstrap-sha": "97bc78f2ea2fb8e6b61ce7898c1a5e66f379ce6a",
+  "draft": false,
+  "prerelease": false,
+  "packages": {
+    ".": {
+      "package-name": "haiven-sdk-godot",
+      "initial-version": "0.0.1",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}
