@@ -1,0 +1,55 @@
+name: Godot editor
+
+# Headless import and the three scripts that ship in this repository.
+# Release zips stay in release.yml. This file never publishes.
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: editor-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  editor:
+    name: Godot editor
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GODOT_EXPECTED_VERSION: "4.5.1"
+      GODOT_LOG_DIR: build/godot-results
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/godot-results "$RUNNER_TEMP/godot"
+          archive="$RUNNER_TEMP/godot/editor.zip"
+          curl --fail --location --retry 3 --max-time 180 \
+            https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip \
+            --output "$archive" 2>&1 | tee build/godot-results/install.log
+          echo "02ec53d1cc7dbb9cc6355393c61b9ab43d1244751a124f10248a4802830788cd  $archive" | sha256sum --check
+          unzip -q "$archive" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Import and run headless scripts
+        run: python3 ci/check_editor.py
+
+      - name: Preserve Godot logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: godot-results
+          path: build/godot-results/
+          if-no-files-found: error
+          retention-days: 14

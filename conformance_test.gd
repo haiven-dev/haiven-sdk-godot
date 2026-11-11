@@ -11,12 +11,11 @@
 # hand-written frames. This answers it the only way that settles it: the real
 # published suite, against the real backend, through the real addon.
 #
-# The fixture is owned by `scripts/check-godot.py`, which builds and starts
-# `haiven-backend/cmd/wsfixture`, reads its announced endpoints and passes them
-# in as environment. Godot cannot read a subprocess's stdout, and the announce
-# line is how the fixture publishes its port — so the process lifecycle lives
-# where it can be observed and GDScript keeps only the part that is about the
-# protocol.
+# This script is not a standalone check. It expects a live fixture process,
+# started outside Godot, to pass its endpoints in the environment. Godot cannot
+# read a subprocess's stdout, and the program that builds
+# `haiven-backend/cmd/wsfixture` is not in this repository. The checks that do
+# run here are protocol_test.gd, session_test.gd, and handoff_test.gd.
 
 extends SceneTree
 
