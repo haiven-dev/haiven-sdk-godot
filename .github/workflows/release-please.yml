@@ -4,7 +4,14 @@ name: release-please
 # the sdk-dev -> main pull request open; merging it with a merge commit lands
 # each sdk-dev commit on main. This workflow then opens the release pull request
 # that bumps addons/haiven/plugin.cfg, CHANGELOG.md, and the manifest. Merging
-# that pull request tags v<version> and publishes the GitHub release.
+# that pull request tags v<version> and publishes the GitHub release. Then merge
+# main back into sdk-dev with a merge commit.
+#
+# Before merging a release pull request, merge the open promotion pull request,
+# if any, and let this workflow update the release pull request, so main holds
+# every sdk-dev commit. release-please reads main in commit-date order and stops
+# at the latest release commit, so an sdk-dev commit dated before a release
+# commit but promoted after it would never be released.
 on:
   push:
     branches: [main]

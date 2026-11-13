@@ -63,6 +63,11 @@ jobs:
           note: >-
             Merge with a **merge commit**, not squash or rebase. `main` then
             holds each of these commits, so release-please lists each one in
-            CHANGELOG.md and `sdk-dev` needs no reset. After the release pull
-            request merges, merge `main` back into `sdk-dev` with a merge
-            commit.
+            CHANGELOG.md and `sdk-dev` needs no reset. Before merging a release
+            pull request, merge this pull request if it is open, so `main`
+            holds every `sdk-dev` commit, and wait for release-please to update
+            the release pull request. release-please reads `main` in
+            commit-date order and stops at the latest release commit, so an
+            `sdk-dev` commit dated before a release commit but promoted after
+            it is never released. After the release pull request merges, merge
+            `main` back into `sdk-dev` with a merge commit.
