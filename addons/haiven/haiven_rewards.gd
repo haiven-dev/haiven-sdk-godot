@@ -69,6 +69,11 @@ class Outcome:
 ## Emitted only for a recorded claim that still belongs to the current player
 ## session. This is the loot signal. The callback may call [method clear]; the
 ## awaiting caller then gets [constant SESSION_CHANGED], not a stale success.
+##
+## One claim can emit this more than once: [method refresh] re-emits a recorded
+## claim, and overlapping [method claim] calls for one reward share one claim id
+## and each emit on success. The server records the claim once. Grant loot at
+## most once per [code]outcome.claim["claimId"][/code].
 signal claimed(outcome: Outcome)
 
 ## Emitted for every submitted claim that still belongs to the current player,
