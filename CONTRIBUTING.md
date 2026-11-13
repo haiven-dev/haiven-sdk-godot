@@ -32,16 +32,19 @@ credentials.
 
 ## Checks
 
-Godot 4.5.1 is the version this repository is written for. From the
-repository root, these scripts keep their fixtures in this tree:
+Godot 4.5.1 stable is the version this repository is written for. From the
+repository root, run the same check CI runs:
 
 ```sh
-godot --headless --path . --script protocol_test.gd
-godot --headless --path . --script session_test.gd
-godot --headless --path . --script handoff_test.gd
+python3 ci/check_editor.py
 ```
 
-Each one prints `HAIVEN_TEST_PASS` and exits 0 on success.
+It imports a clean copy of the project, then runs each script in its `STAGES`
+table: every `*_test.gd` script at the repository root except
+`conformance_test.gd`. Those scripts keep their fixtures in this tree. Each
+must print its `HAIVEN_TEST_PASS` line, and any script error fails the run.
+Set `GODOT_BIN` if the 4.5.1 editor is not `godot` on `PATH`. See "Running it"
+in the README for the other settings.
 
 `Haiven.Godot.csproj` references the public `haiven-sdk-unity` core.
-That checkout is not required for the three scripts above.
+That checkout is not required for these checks.

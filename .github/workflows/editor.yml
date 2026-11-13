@@ -1,6 +1,6 @@
 name: Godot editor
 
-# Headless import and the three scripts that ship in this repository.
+# Headless import, then every headless test script listed in ci/check_editor.py.
 # Release zips stay in release.yml. This file never publishes.
 on:
   pull_request:

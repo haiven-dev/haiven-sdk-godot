@@ -205,13 +205,17 @@ A missing editor, a wrong version, an import failure, a script error, a
 timeout, or a missing completion line fails the run. Logs stay in
 `build/godot-results/`.
 
-The three scripts, and the line each must print once:
+After the import, `ci/check_editor.py` runs each script in its `STAGES`
+table: every `*_test.gd` script at the repository root except
+`conformance_test.gd` (protocol, session, handoff, chat, rest_api, identity,
+rewards, ws_api, contracts, vocabulary, and analytics). Each must print its
+`HAIVEN_TEST_PASS <suite> <count>` line exactly once. `STAGES` holds the
+expected counts, so a new script or a changed assertion count is recorded
+there. To run one script by hand after an import:
 
 ```sh
 godot --headless --path . --import
-godot --headless --path . --script protocol_test.gd   # HAIVEN_TEST_PASS protocol 13
-godot --headless --path . --script session_test.gd    # HAIVEN_TEST_PASS session 15
-godot --headless --path . --script handoff_test.gd    # HAIVEN_TEST_PASS handoff 34
+godot --headless --path . --script session_test.gd
 ```
 
 `conformance_test.gd` is not one of these checks.
