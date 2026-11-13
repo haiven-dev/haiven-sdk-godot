@@ -1,0 +1,51 @@
+name: release-please
+
+# Runs on main alone. sdk-dev takes the work, and the Promotion PR workflow keeps
+# the sdk-dev -> main pull request open; merging it with a merge commit lands
+# each sdk-dev commit on main. This workflow then opens the release pull request
+# that bumps addons/haiven/plugin.cfg, CHANGELOG.md, and the manifest. Merging
+# that pull request tags v<version> and publishes the GitHub release. Then merge
+# main back into sdk-dev with a merge commit.
+#
+# Before merging a release pull request, merge the open promotion pull request,
+# if any, and let this workflow update the release pull request, so main holds
+# every sdk-dev commit. release-please reads main in commit-date order and stops
+# at the latest release commit, so an sdk-dev commit dated before a release
+# commit but promoted after it would never be released. For the same reason,
+# squash- or rebase-merge pull requests into sdk-dev, and rebase local commits
+# onto sdk-dev before pushing, so no commit reaches main dated before the latest
+# release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # An app token, unlike GITHUB_TOKEN, starts other workflows, so the
+      # release build in release.yml runs on the release pull request.
+      - name: Mint release-please token
+        id: release-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ vars.HAIVEN_RELEASE_APP_ID }}
+          private-key: ${{ secrets.HAIVEN_RELEASE_APP_PRIVATE_KEY }}
+          owner: haiven-dev
+          repositories: haiven-sdk-godot
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          token: ${{ steps.release-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main

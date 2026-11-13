@@ -206,7 +206,8 @@ def main() -> None:
     if version != declared:
         fail(
             f"version {version} does not match addons/haiven/plugin.cfg version "
-            f"{declared}; bump plugin.cfg on main before tagging v{version}"
+            f"{declared}; release tags come from merging the release-please release "
+            f"pull request, which sets plugin.cfg to the tagged version"
         )
 
     out = args.out.resolve()

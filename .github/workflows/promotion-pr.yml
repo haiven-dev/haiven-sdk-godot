@@ -1,0 +1,75 @@
+name: Promotion PR
+
+# Keeps one open pull request that promotes sdk-dev into main. Its description
+# lists, by conventional-commit type, every commit sdk-dev carries that main
+# lacks, and is regenerated whenever either branch moves. The logic lives in the
+# public haiven-dev/haiven-actions promotion-pr action; this caller owns only the
+# triggers, the token, and this repository's choices.
+#
+# The pull request head is sdk-dev itself, so this workflow pushes nothing,
+# never merges, and never resets or deletes a branch. Merge it with a merge
+# commit so main holds each sdk-dev commit; release-please then reads them
+# directly and opens the release pull request on main.
+#
+# A push runs the workflow file of the branch it lands on, so runs triggered by
+# sdk-dev pushes start once sdk-dev holds this file (after main is next merged
+# back into sdk-dev).
+on:
+  push:
+    branches: [sdk-dev, main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: promotion-pr-${{ github.repository }}-sdk-dev-main
+  cancel-in-progress: false
+
+jobs:
+  promotion-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # GITHUB_TOKEN only reads, for the checkout and fetch. The release app token
+    # opens and edits the pull request.
+    permissions:
+      contents: read
+    steps:
+      # A pull request opened with GITHUB_TOKEN starts no pull_request
+      # workflows, so the release build would never run on it. A token minted
+      # from the org's release app does start them.
+      - name: Mint promotion token
+        id: promotion-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ vars.HAIVEN_RELEASE_APP_ID }}
+          private-key: ${{ secrets.HAIVEN_RELEASE_APP_PRIVATE_KEY }}
+          owner: haiven-dev
+          repositories: haiven-sdk-godot
+          permission-contents: read
+          permission-pull-requests: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Open or refresh the promotion pull request
+        uses: haiven-dev/haiven-actions/actions/promotion-pr@407d8e232ebd2b733db9f9ac2c88ae382fdce149 # main
+        with:
+          token: ${{ steps.promotion-token.outputs.token }}
+          source-branch: sdk-dev
+          target-branch: main
+          title: "chore: promote sdk-dev into main"
+          note: >-
+            Merge with a **merge commit**, not squash or rebase. `main` then
+            holds each of these commits, so release-please lists each one in
+            CHANGELOG.md and `sdk-dev` needs no reset. Before merging a release
+            pull request, merge this pull request if it is open, so `main`
+            holds every `sdk-dev` commit, and wait for release-please to update
+            the release pull request. release-please reads `main` in
+            commit-date order and stops at the latest release commit, so an
+            `sdk-dev` commit dated before a release commit but promoted after
+            it is never released. For the same reason, squash- or rebase-merge
+            pull requests into `sdk-dev`, and rebase local commits onto
+            `sdk-dev` before pushing. After the release pull request merges, merge
+            `main` back into `sdk-dev` with a merge commit.
