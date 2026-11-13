@@ -1,9 +1,10 @@
 name: release-please
 
-# Runs on main alone (the haiven-docs contribution standard): sdk-dev takes the work,
-# an sdk-dev -> main promotion lands it, and this opens the release pull request that
-# bumps addons/haiven/plugin.cfg, CHANGELOG.md, and the manifest.
-# Merging that pull request tags v<version> and publishes the GitHub release.
+# Runs on main alone. sdk-dev takes the work, and the Promotion PR workflow keeps
+# the sdk-dev -> main pull request open; merging it with a merge commit lands
+# each sdk-dev commit on main. This workflow then opens the release pull request
+# that bumps addons/haiven/plugin.cfg, CHANGELOG.md, and the manifest. Merging
+# that pull request tags v<version> and publishes the GitHub release.
 on:
   push:
     branches: [main]
@@ -20,16 +21,18 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # An app token, unlike GITHUB_TOKEN, starts other workflows, so the
+      # release build in release.yml runs on the release pull request.
       - name: Mint release-please token
         id: release-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ vars.HAIVEN_RELEASE_APP_ID }}
           private-key: ${{ secrets.HAIVEN_RELEASE_APP_PRIVATE_KEY }}
           owner: haiven-dev
           repositories: haiven-sdk-godot
 
-      - uses: googleapis/release-please-action@v5
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
           token: ${{ steps.release-token.outputs.token }}
