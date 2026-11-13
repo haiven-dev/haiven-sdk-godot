@@ -234,7 +234,29 @@ for `--headless`, `--import`, and `--script`.
 
 ## Releases
 
-Pushing a `v<version>` tag runs `.github/workflows/release.yml`, which publishes
+release-please cuts every release from `main`. Work lands on `sdk-dev`. The
+Promotion PR workflow keeps one `sdk-dev` -> `main` pull request open, and
+release-please keeps one release pull request open on `main` that bumps
+`version` in `addons/haiven/plugin.cfg`, `CHANGELOG.md`, and
+`.release-please-manifest.json`. To release:
+
+1. Merge the promotion pull request with a merge commit, not squash or rebase,
+   so `main` holds each `sdk-dev` commit.
+2. Before merging the release pull request, merge the open promotion pull
+   request, if any, and wait for release-please to update the release pull
+   request, so `main` holds every `sdk-dev` commit. release-please reads `main`
+   in commit-date order and stops at the latest release commit, so an `sdk-dev`
+   commit dated before a release commit but promoted after it is never
+   released.
+3. Merge the release pull request. release-please tags `v<version>` and creates
+   the GitHub release.
+4. Merge `main` back into `sdk-dev` with a merge commit.
+
+Do not bump `plugin.cfg` or push a `v<version>` tag by hand. release-please owns
+both; a hand-made tag leaves the manifest behind, and release-please then
+proposes a version whose tag already exists.
+
+The `v<version>` tag push runs `.github/workflows/release.yml`, which publishes
 three assets to the GitHub release for that tag:
 
 - `haiven-godot-addon-<version>.zip`: `addons/haiven/`; unzip it into a Godot
@@ -246,9 +268,9 @@ three assets to the GitHub release for that tag:
 - `SHA256SUMS`: checksums of both zips (`sha256sum -c SHA256SUMS`).
 
 The tag must match `version` in `addons/haiven/plugin.cfg`, or the build fails
-before anything is published. Bump `plugin.cfg` on `main` first, then tag that
-commit. A version with a pre-release suffix (`v1.2.3-rc.1`) is published as a
-GitHub pre-release. Pull requests against `main` and manual runs build the same
+before anything is published; the release pull request keeps the two in step.
+A version with a pre-release suffix (`v1.2.3-rc.1`) is published as a GitHub
+pre-release. Pull requests against `main` and manual runs build the same
 assets as a workflow artifact and do not publish.
 
 To build the assets locally (Python 3.9+, `git`, and a .NET SDK):
