@@ -13,7 +13,10 @@
       "package-name": "haiven-sdk-godot",
       "initial-version": "0.1.0",
       "changelog-path": "CHANGELOG.md",
-      "extra-files": ["addons/haiven/plugin.cfg"]
+      "extra-files": [
+        "addons/haiven/plugin.cfg",
+        "addons/haiven/haiven_http_transport.gd"
+      ]
     }
   }
 }

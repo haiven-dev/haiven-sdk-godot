@@ -88,7 +88,7 @@ func request(method: String, path: String, body: Variant, content_type: String) 
 	if encoded.error is RestError:
 		return encoded.error
 
-	var headers := PackedStringArray(["Accept: application/json", "X-Haiven-SDK: godot/0.0.0"])
+	var headers := PackedStringArray(["Accept: application/json", "X-Haiven-SDK: godot/0.0.0"])  # x-release-please-version
 	if not _app_id.is_empty():
 		headers.append("X-Haiven-App-ID: %s" % _app_id)
 	if _token_source.is_valid():
