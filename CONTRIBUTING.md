@@ -13,7 +13,7 @@ problem. Do not paste access tokens, passwords, or private endpoints.
 
 ## Pull requests
 
-1. Fork the repository and branch from `main`.
+1. Fork the repository and branch from `sdk-dev`.
 2. Keep the change focused.
 3. Use a [Conventional Commits](https://www.conventionalcommits.org/)
    subject:
@@ -23,8 +23,9 @@ problem. Do not paste access tokens, passwords, or private endpoints.
    `type` is one of `feat`, `fix`, `docs`, `deps`, `style`, `refactor`,
    `perf`, `test`, `build`, `ci`, `chore`, or `revert`. `scope` is
    optional.
-4. Open the pull request against `main`. Say what changed and how you
-   checked it.
+4. Open the pull request against `sdk-dev`, where work lands before it is
+   promoted to `main` (see Releases in the README). Say what changed and how
+   you checked it.
 
 Do not commit access tokens, passwords, private endpoints, or local
 credentials.
