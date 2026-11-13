@@ -87,8 +87,7 @@ var _awaiting_resend: Array[Dictionary] = []
 
 # Written and not yet answered, oldest first. Only what the server names as
 # refused or dropped is resent from here: a request it accepted before a lapse
-# has its reply parked and replayed, so a blind resend duplicates it
-# (spec/client.md, SDK-RECOVERY-1..5).
+# has its reply parked and replayed, so a blind resend duplicates it.
 var _in_flight: Array[Dictionary] = []
 
 var _opened := false

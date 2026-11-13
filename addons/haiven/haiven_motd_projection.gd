@@ -29,7 +29,7 @@ func view_state() -> Dictionary:
 	return _state.duplicate(true)
 
 
-## Applies one event from spec/presentation/motd-v1.json. Unknown or stale
+## Applies one MOTD presentation v1 event. Unknown or stale
 ## events are finite no-ops; invalid messages become the reviewed failure state.
 func apply(event: Dictionary) -> Dictionary:
 	var event_type := String(event.get("type", ""))

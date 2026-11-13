@@ -125,7 +125,7 @@ func _run() -> void:
 	check("refresh credentials are rejected", rejected.get("error") == "forbidden_refresh_credential")
 	check("a rejected credential does not replace the session token", tokens.read().is_empty())
 
-	# ADR 0041: a durable credential arrives with a null expires_in.
+	# A durable credential arrives with a null expires_in.
 	_entropy = [_filled_bytes(14), _filled_bytes(15)]
 	_exchange_payload = {"access_token": "durable-access", "token_type": "Bearer", "expires_in": null}
 	var saved := SavedTokens.new()
@@ -146,7 +146,7 @@ func _run() -> void:
 	var missing_result: Dictionary = await missing.complete(_callback(missing_start["state"]))
 	check("a missing expires_in is still refused", missing_result.get("error") == "invalid_credential")
 
-	# SDK-HANDOFF-11: a finite lifetime is a whole number of seconds. 86400.5
+	# A finite lifetime is a whole number of seconds. 86400.5
 	# is the case a relative-tolerance comparison would wrongly accept.
 	var entropy_seed := 18
 	for refused_expiry: Variant in [1.5, 86400.5, -1]:

@@ -4,7 +4,7 @@
 # `sdks/js/test/conformance.test.ts` and `sdks/dotnet/Haiven.Sdk.Conformance` both drive a
 # bare transcript client on purpose — a bug in the binding must not be able to
 # mask a server assertion. This one deliberately does the opposite and drives
-# `addons/haiven`, because the question #sdkconformance names is not "does the
+# `addons/haiven`, because the question this runner asks is not "does the
 # server answer" (two runners already say yes) but **whether the signal-based
 # Godot idiom can be driven by the conformance step vocabulary at all**.
 # `session_test.gd` answered that in miniature, against an in-process socket and

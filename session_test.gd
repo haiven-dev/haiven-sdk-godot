@@ -1,6 +1,6 @@
 # Can the signal-based Godot idiom be driven by the conformance step vocabulary?
 #
-# That was the open half of #sdkgodot. The corpus's verbs are PULL-shaped —
+# That was the open question for the Godot SDK. The corpus's verbs are PULL-shaped —
 # `expect` means "the next frame to arrive must match", `expectSilence` means
 # "nothing arrives within ms" — and an idiomatic Godot API is PUSH-shaped: it
 # emits signals and the game connects handlers. A push API has no "next frame"
@@ -178,9 +178,10 @@ func _initialize() -> void:
 		_session.close_kind == Protocol.CloseKind.TRANSPORT,
 	)
 
-	# A close says what it means for the credential (haiven-api websocket.md,
-	# Game sockets): a refused or revoked credential needs a new sign-in, a
-	# dropped connection keeps it, and no 1008 is worth reconnecting into.
+	# A close says what it means for the credential, as the WebSocket API
+	# documents for game sockets: a refused or revoked credential needs a new
+	# sign-in, a dropped connection keeps it, and no 1008 is worth reconnecting
+	# into.
 	var cases := [
 		[1008, "unauthorized", Protocol.CloseKind.CREDENTIAL_REFUSED],
 		[1008, "credential_revoked", Protocol.CloseKind.CREDENTIAL_REVOKED],

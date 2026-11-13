@@ -1,7 +1,7 @@
 # Headless coverage of HaivenChat over a scripted socket: sends tracked by
 # client message id, moderation states mapped to outcomes, refusals, the close
 # that leaves sends unconfirmed, and the resend under the same id on the next
-# session. The same cases as sdks/cpp/test/chat_test.cpp and the .NET tests.
+# session. The same cases as the C++ and .NET Haiven SDKs' chat tests.
 extends SceneTree
 
 const Session := preload("res://addons/haiven/haiven_session.gd")

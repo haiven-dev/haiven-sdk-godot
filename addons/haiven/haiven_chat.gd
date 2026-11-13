@@ -4,7 +4,7 @@
 # A session is one socket, so this outlives sessions: attach each session the
 # game opens, including after a reconnect. Every send carries a client message
 # id; a send unanswered when its socket closes becomes UNCONFIRMED, and the next
-# attach resends it under the same id, which haiven-api deduplicates. Nothing
+# attach resends it under the same id, which the server deduplicates. Nothing
 # here fails on a network error: a send without a usable session is kept and
 # resent on attach, so a chat failure never interrupts gameplay.
 #

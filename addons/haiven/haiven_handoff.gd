@@ -154,7 +154,7 @@ func restart_login(reason: String) -> Dictionary:
 ## Delivers the callback URI and exchanges its code. The returned dictionary is
 ## `{ok: true, credential: {access_token, token_type, expires_at_msec}}` or
 ## `{ok: false, error}`, where `expires_at_msec` is -1 for a durable credential
-## (ADR 0041). State is consumed before the network request.
+## (one with no fixed expiry). State is consumed before the network request.
 func complete(callback_url: String) -> Dictionary:
 	if not _configuration_error.is_empty():
 		return _failure(_configuration_error)
@@ -249,9 +249,9 @@ func _parse_exchange_response(response: Dictionary) -> Dictionary:
 	var access_token: Variant = payload.get("access_token")
 	var token_type: Variant = payload.get("token_type")
 	var expires_in: Variant = payload.get("expires_in")
-	# Present but null for a durable credential (ADR 0041).
+	# Present but null for a durable credential, which has no fixed expiry.
 	var durable := payload.has("expires_in") and expires_in == null
-	# A finite lifetime is a whole number of seconds (SDK-HANDOFF-11). The
+	# A finite lifetime is a whole number of seconds. The
 	# comparison is exact: is_equal_approx scales its tolerance with the value
 	# and would accept 86400.5.
 	var expiry_is_integer := (

@@ -16,7 +16,7 @@ extends RefCounted
 var access_token: String
 
 ## Absolute Unix time in milliseconds, or -1 for a credential with no fixed
-## expiry (ADR 0041's durable credential, or a host bearer of unknown expiry).
+## expiry (a durable credential, or a host bearer of unknown expiry).
 var expires_at_msec: int
 
 

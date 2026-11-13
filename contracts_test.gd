@@ -1,5 +1,5 @@
 # Headless coverage that the generated contract surface ships in the addon.
-# codegen/emit_contracts.py writes addons/haiven/haiven_contracts.gd directly,
+# The generator writes addons/haiven/haiven_contracts.gd directly,
 # because the addon is copied into a game project whole.
 extends SceneTree
 
