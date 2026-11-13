@@ -247,7 +247,9 @@ release-please keeps one release pull request open on `main` that bumps
    request, so `main` holds every `sdk-dev` commit. release-please reads `main`
    in commit-date order and stops at the latest release commit, so an `sdk-dev`
    commit dated before a release commit but promoted after it is never
-   released.
+   released. For the same reason, squash- or rebase-merge pull requests into
+   `sdk-dev`, and rebase local commits onto `sdk-dev` before pushing, so no
+   commit reaches `main` dated before the latest release.
 3. Merge the release pull request. release-please tags `v<version>` and creates
    the GitHub release.
 4. Merge `main` back into `sdk-dev` with a merge commit.
