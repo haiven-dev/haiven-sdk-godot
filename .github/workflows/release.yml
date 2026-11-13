@@ -136,8 +136,13 @@ jobs:
           sha256sum -c SHA256SUMS
           assets=(haiven-godot-addon-"$VERSION".zip haiven-godot-dotnet-"$VERSION".zip SHA256SUMS)
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            # Re-run of a tag that already has a release: replace the assets.
+            # release-please (or an earlier run) created the release: attach the
+            # assets. release-please creates it as a full release, so mark a
+            # pre-release version here and keep it from becoming Latest.
             gh release upload "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            case "$VERSION" in
+              *-*) gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --latest=false ;;
+            esac
           else
             prerelease=()
             case "$VERSION" in *-*) prerelease=(--prerelease) ;; esac
