@@ -80,7 +80,10 @@ handshake, so the raw arm cannot later be deleted as redundant.
 RFC 7636 S256 transform, `OS.shell_open` launches the first-party page, and an
 `HTTPRequest` child performs the form-encoded code exchange. The URL launcher
 and exchange are injectable for console/mobile host adapters and deterministic
-tests; the engine implementations are the defaults.
+tests; the engine implementations are the defaults. The default exchange has
+`HaivenHttpTransport`'s bounds: a 10 s timeout, an 8 MiB body cap, and no
+redirects. A timed-out exchange fails `complete` with `exchange_timeout`, so the
+game can offer a retry.
 
 ```gdscript
 var tokens := HaivenTokenStore.new()

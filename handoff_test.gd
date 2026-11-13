@@ -5,6 +5,7 @@ extends SceneTree
 
 const Handoff := preload("res://addons/haiven/haiven_handoff.gd")
 const TokenStore := preload("res://addons/haiven/haiven_token_store.gd")
+const Transport := preload("res://addons/haiven/haiven_http_transport.gd")
 
 const NOW := 1_789_646_400_000
 const REDIRECT := "haiven-example://auth/callback?mode=login"
@@ -17,6 +18,8 @@ var _now := NOW
 var _entropy: Array[PackedByteArray] = []
 var _opened: Array[String] = []
 var _requests: Array[Dictionary] = []
+# When set, the injected exchange returns this instead of a 200 credential.
+var _exchange_response := {}
 var _exchange_payload := {
 	"access_token": "header.eyJleHAiOjF9.signature",
 	"token_type": "Bearer",
@@ -194,6 +197,51 @@ func _run() -> void:
 	check("nothing saved resumes nothing", empty_resume.get("error") == "no_saved_credential")
 	check("finding nothing saved is not a failure", failed_signals.is_empty())
 
+	# The default exchange is bounded like HaivenHttpTransport: a stalled request
+	# times out instead of holding complete() open forever, and a redirect cannot
+	# carry the code and verifier to another URL.
+	_entropy = [_filled_bytes(30), _filled_bytes(31)]
+	var stalled := _coordinator(TokenStore.new())
+	root.add_child(stalled)
+	var request: HTTPRequest = stalled._new_exchange_request()
+	check(
+		"the default exchange has a finite timeout",
+		request.timeout > 0.0 and is_equal_approx(request.timeout, Transport.DEFAULT_TIMEOUT_SECONDS),
+	)
+	check("the default exchange follows no redirects", request.max_redirects == 0)
+	check("the default exchange caps the response body", request.body_size_limit == Transport.DEFAULT_BODY_SIZE_LIMIT)
+	request.free()
+
+	# A timed-out exchange settles complete() with a failure, so the caller can
+	# offer a retry and a fresh handoff can start.
+	var stalled_failures: Array[String] = []
+	stalled.failed.connect(func(error: String) -> void: stalled_failures.append(error))
+	var stalled_start: Dictionary = stalled.begin_login()
+	_exchange_response = {"result": HTTPRequest.RESULT_TIMEOUT, "status": 0, "body": ""}
+	var timed_out: Dictionary = await stalled.complete(_callback(stalled_start["state"]))
+	check("a timed-out exchange fails", timed_out.get("ok") == false and timed_out.get("error") == "exchange_timeout")
+	check("a timed-out exchange emits failed", stalled_failures == ["exchange_timeout"])
+	check("a timed-out exchange has consumed its state", not stalled.cancel(stalled_start["state"]))
+	_entropy = [_filled_bytes(32), _filled_bytes(33)]
+	check("a fresh handoff starts after a timeout", stalled.begin_login().get("ok") == true)
+
+	_entropy = [_filled_bytes(34), _filled_bytes(35)]
+	var redirected_start: Dictionary = stalled.begin_login()
+	_exchange_response = {"result": HTTPRequest.RESULT_REDIRECT_LIMIT_REACHED, "status": 302, "body": ""}
+	var redirected: Dictionary = await stalled.complete(_callback(redirected_start["state"]))
+	check("a redirected exchange fails without following", redirected.get("error") == "exchange_http_302")
+
+	_entropy = [_filled_bytes(36), _filled_bytes(37)]
+	var truncated_start: Dictionary = stalled.begin_login()
+	_exchange_response = {
+		"result": HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED,
+		"status": 200,
+		"body": JSON.stringify({"access_token": "partial", "token_type": "Bearer", "expires_in": 300}),
+	}
+	var truncated: Dictionary = await stalled.complete(_callback(truncated_start["state"]))
+	check("an incomplete 2xx exchange is not a credential", truncated.get("error") == "exchange_http_0")
+	_exchange_response = {}
+
 	_report()
 
 
@@ -242,6 +290,8 @@ func _launch(url: String) -> int:
 
 func _exchange(url: String, headers: PackedStringArray, body: String) -> Dictionary:
 	_requests.append({"url": url, "headers": headers, "body": body})
+	if not _exchange_response.is_empty():
+		return _exchange_response
 	return {"status": 200, "body": JSON.stringify(_exchange_payload)}
 
 

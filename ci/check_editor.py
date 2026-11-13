@@ -20,7 +20,7 @@ PINNED_VERSION = "4.5.1"
 STAGES = (
     ("protocol", ["--script", "protocol_test.gd"], "HAIVEN_TEST_PASS protocol 13"),
     ("session", ["--script", "session_test.gd"], "HAIVEN_TEST_PASS session 18"),
-    ("handoff", ["--script", "handoff_test.gd"], "HAIVEN_TEST_PASS handoff 60"),
+    ("handoff", ["--script", "handoff_test.gd"], "HAIVEN_TEST_PASS handoff 69"),
     ("chat", ["--script", "chat_test.gd"], "HAIVEN_TEST_PASS chat 19"),
     ("rest", ["--script", "rest_api_test.gd"], "HAIVEN_TEST_PASS rest 14"),
     ("identity", ["--script", "identity_test.gd"], "HAIVEN_TEST_PASS identity 65"),

@@ -11,6 +11,7 @@ signal completed(credential: Dictionary)
 signal failed(error: String)
 
 const Protocol := preload("haiven_protocol.gd")
+const HttpTransport := preload("haiven_http_transport.gd")
 const DEFAULT_TRANSACTION_LIFETIME_MSEC := 15 * 60 * 1000
 const PKCE_BYTES := 32
 const FORM_CONTENT_TYPE := "Content-Type: application/x-www-form-urlencoded"
@@ -37,7 +38,9 @@ var _configuration_error := ""
 ## Required options are `entry_url`, `exchange_url`, `integration_id`, and
 ## `redirect_url`. `launch_url`, `exchange`, `now`, and `random_bytes` are host
 ## seams for platforms or deterministic tests; omitted launch/exchange call
-## [method OS.shell_open] and an engine [HTTPRequest], respectively.
+## [method OS.shell_open] and an engine [HTTPRequest], respectively. That
+## request has [HaivenHttpTransport]'s bounds: a finite timeout, a body cap, and
+## no redirects.
 func _init(
 	options: Dictionary,
 	tokens: RefCounted,
@@ -216,7 +219,7 @@ func cancel(state: String) -> bool:
 
 
 func _http_exchange(url: String, headers: PackedStringArray, body: String) -> Dictionary:
-	var request := HTTPRequest.new()
+	var request := _new_exchange_request()
 	add_child(request)
 	var request_error := request.request(url, headers, HTTPClient.METHOD_POST, body)
 	if request_error != OK:
@@ -232,7 +235,26 @@ func _http_exchange(url: String, headers: PackedStringArray, body: String) -> Di
 	}
 
 
+## The default exchange's request, bounded like [HaivenHttpTransport]. Without
+## a timeout a stalled exchange would never settle [method complete]; a
+## redirect would carry the code and verifier to another URL.
+func _new_exchange_request() -> HTTPRequest:
+	var request := HTTPRequest.new()
+	request.timeout = HttpTransport.DEFAULT_TIMEOUT_SECONDS
+	request.body_size_limit = HttpTransport.DEFAULT_BODY_SIZE_LIMIT
+	request.max_redirects = 0
+	return request
+
+
 func _parse_exchange_response(response: Dictionary) -> Dictionary:
+	var result := int(response.get("result", HTTPRequest.RESULT_SUCCESS))
+	if result == HTTPRequest.RESULT_TIMEOUT:
+		return {"ok": false, "error": "exchange_timeout"}
+	if result != HTTPRequest.RESULT_SUCCESS:
+		# No complete response arrived (a refused connection, a redirect, a body
+		# over the cap). A partial 2xx body is never read as a credential.
+		var status := int(response.get("status", 0))
+		return {"ok": false, "error": "exchange_http_%d" % (0 if status >= 200 and status < 300 else status)}
 	if int(response.get("status", 0)) < 200 or int(response.get("status", 0)) >= 300:
 		return {"ok": false, "error": "exchange_http_%d" % int(response.get("status", 0))}
 	var text := String(response.get("body", ""))
