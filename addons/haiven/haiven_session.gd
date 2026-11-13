@@ -46,6 +46,18 @@ signal authenticated()
 ## The server lapsed the session. Re-auth has already been sent.
 signal expired()
 
+## The server refused the re-auth credential (`auth.failure` on a live socket),
+## with its code. Not a lapse: the session stops re-authenticating, and the game
+## has to sign the player in again.
+signal authentication_failed(code: String)
+
+## A frame this SDK refused to decode, with a finite SDK-local code and a
+## message. Today the only code is [constant HaivenProtocol.INTEGER_PRECISION_EXCEEDED]:
+## the frame carried an integer beyond 2^53 - 1, which `JSON.parse_string`
+## would have rounded. The frame is dropped -- no other signal sees it -- and
+## the session stays open.
+signal decode_error(code: String, message: String)
+
 ## The socket closed, with the code and reason the server gave.
 signal closed(code: int, reason: String)
 
@@ -53,7 +65,13 @@ enum State { PENDING, AUTHENTICATED, EXPIRED, CLOSED }
 
 var state: State = State.PENDING
 
-var _socket: WebSocketPeer
+## What the close means for the credential, a [enum HaivenProtocol.CloseKind],
+## once the session is closed; -1 before. Set before [signal closed] is emitted.
+var close_kind: int = -1
+
+# A WebSocketPeer, or any object with the polling methods this class calls on
+# it -- the client conformance runner drives the session through a scripted one.
+var _socket: Object
 var _token: Callable
 var _next_id: Callable
 var _counter := 0
@@ -64,8 +82,14 @@ var _counter := 0
 # handshake. Every binding pays for this queue.
 var _pending: Array[Dictionary] = []
 
-# Requests the server accepted and then discarded, held for resend after re-auth.
+# Requests the server refused or dropped, held for resend after re-auth.
 var _awaiting_resend: Array[Dictionary] = []
+
+# Written and not yet answered, oldest first. Only what the server names as
+# refused or dropped is resent from here: a request it accepted before a lapse
+# has its reply parked and replayed, so a blind resend duplicates it
+# (spec/client.md, SDK-RECOVERY-1..5).
+var _in_flight: Array[Dictionary] = []
 
 var _opened := false
 
@@ -77,7 +101,7 @@ var _opened := false
 ## client reads through a token store: a token refreshed on the REST side after
 ## this session was constructed must reach the next handshake, and a captured
 ## copy cannot.
-func _init(socket: WebSocketPeer, token: Variant, next_id: Callable = Callable()) -> void:
+func _init(socket: Object, token: Variant, next_id: Callable = Callable()) -> void:
 	_socket = socket
 	_token = token if token is Callable else Callable(token, "read")
 	_next_id = next_id if next_id.is_valid() else _default_id
@@ -98,7 +122,7 @@ func poll() -> bool:
 
 	_socket.poll()
 
-	var ready := _socket.get_ready_state()
+	var ready: int = _socket.get_ready_state()
 
 	if ready == WebSocketPeer.STATE_OPEN and not _opened:
 		_opened = true
@@ -110,8 +134,14 @@ func poll() -> bool:
 	if ready == WebSocketPeer.STATE_CLOSED:
 		var was := state
 		state = State.CLOSED
+		_pending.clear()
+		_awaiting_resend.clear()
+		_in_flight.clear()
 		if was != State.CLOSED:
-			closed.emit(_socket.get_close_code(), _socket.get_close_reason())
+			var code: int = _socket.get_close_code()
+			var reason: String = _socket.get_close_reason()
+			close_kind = Protocol.classify_close(code, reason)
+			closed.emit(code, reason)
 		return false
 
 	return true
@@ -145,7 +175,66 @@ func _authenticate() -> void:
 
 
 func _write(frame: Dictionary) -> void:
+	if frame.get("type") != Protocol.AUTH:
+		_in_flight.append(frame)
 	_socket.send_text(JSON.stringify(frame))
+
+
+# Removes and returns the unanswered request with this id, or an empty Dictionary.
+func _take_in_flight(request_id: String) -> Dictionary:
+	for index in _in_flight.size():
+		if _in_flight[index].get("requestId") == request_id:
+			var frame := _in_flight[index]
+			_in_flight.remove_at(index)
+			return frame
+	return {}
+
+
+# Sends recovered requests now if the session is usable, else after the next auth.success.
+func _requeue(frames: Array[Dictionary]) -> void:
+	for frame in frames:
+		if state == State.AUTHENTICATED:
+			_write(frame)
+		else:
+			_awaiting_resend.append(frame)
+
+
+func _handle_expired(frame: Dictionary) -> void:
+	# A correlated notice names the one request the lapse refused.
+	var request_id: String = str(frame.get("requestId", ""))
+	if request_id != "":
+		var refused := _take_in_flight(request_id)
+		if not refused.is_empty():
+			_awaiting_resend.append(refused)
+	# Re-auth on the SAME socket, once per episode. The server never asked for a
+	# reconnect, and a binding that reconnects here pays for a new handshake and
+	# loses the receive window for nothing.
+	if state == State.EXPIRED:
+		return
+	state = State.EXPIRED
+	expired.emit()
+	_authenticate()
+
+
+# The overflow half of an expiry. It arrives after the auth.success that ended
+# the episode, so what it names goes out at once rather than waiting.
+func _handle_dropped(frame: Dictionary) -> void:
+	var report: Variant = frame.get("payload")
+	if typeof(report) != TYPE_DICTIONARY:
+		return
+	var named: Array[Dictionary] = []
+	for id in report.get("requestIds", []):
+		var dropped := _take_in_flight(str(id))
+		if not dropped.is_empty():
+			named.append(dropped)
+	# A truncated list is a sample: every request still unanswered is suspect.
+	# Read before resending, because a resend is in flight again.
+	var suspect: Array[Dictionary] = []
+	if report.get("truncated") == true:
+		suspect = _in_flight.duplicate()
+		_in_flight.clear()
+	_requeue(named)
+	_requeue(suspect)
 
 
 func _flush() -> void:
@@ -161,6 +250,17 @@ func _receive(text: String) -> void:
 	if frame.is_empty():
 		return
 
+	# The parse above has already rounded any integer beyond 2^53 - 1, so the
+	# check reads the raw text. Before frame_received: a rounded frame is
+	# announced nowhere, not even raw.
+	var unsafe := Protocol.find_unsafe_integer(text)
+	if unsafe != "":
+		decode_error.emit(
+			Protocol.INTEGER_PRECISION_EXCEEDED,
+			"integer %s exceeds 2^53 - 1 and cannot be decoded without rounding" % unsafe,
+		)
+		return
+
 	# Raw first, and unconditionally. Emitting after the interpretation below
 	# would put the early returns between a frame and its own announcement.
 	frame_received.emit(frame)
@@ -168,23 +268,33 @@ func _receive(text: String) -> void:
 	var type: String = frame.get("type", "")
 
 	if type == Protocol.AUTH_SUCCESS:
+		# A replayed handshake reply on an authenticated session changes nothing.
+		if state == State.AUTHENTICATED:
+			return
 		state = State.AUTHENTICATED
 		authenticated.emit()
 		_flush()
 		return
 
 	if type == Protocol.AUTH_EXPIRED:
-		# Re-auth on the SAME socket. The server never asked for a reconnect, and
-		# a binding that reconnects here pays for a new handshake and loses the
-		# receive window for nothing.
-		if state != State.EXPIRED:
-			state = State.EXPIRED
-			expired.emit()
-			_authenticate()
+		_handle_expired(frame)
+		return
+
+	if type == Protocol.AUTH_FAILURE:
+		# Stay expired and stop: a further auth.expired starts no re-auth.
+		state = State.EXPIRED
+		authentication_failed.emit(str(frame.get("error", "")))
+		return
+
+	if type == Protocol.AUTH_EXPIRED_DROPPED:
+		_handle_dropped(frame)
 		return
 
 	# The one classification, through the one function that asks has().
 	if Protocol.is_reply(frame):
+		var answered: String = str(frame.get("requestId", ""))
+		if answered != "":
+			_take_in_flight(answered)
 		reply_received.emit(frame)
 	else:
 		event_received.emit(frame)
