@@ -215,7 +215,9 @@ def write_sums(out: Path, assets: list[Path]) -> Path:
         digest = hashlib.sha256(asset.read_bytes()).hexdigest()
         lines.append(f"{digest}  {asset.name}\n")
     dest = out / "SHA256SUMS"
-    dest.write_text("".join(lines), encoding="utf-8", newline="\n")
+    # Bytes keep LF line endings on every platform, Windows included, on
+    # Python 3.9; Path.write_text(newline=) needs Python 3.10.
+    dest.write_bytes("".join(lines).encode("utf-8"))
     return dest
 
 
