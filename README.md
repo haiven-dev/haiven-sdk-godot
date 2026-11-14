@@ -182,8 +182,9 @@ projects also cannot export to the web; use the GDScript flavour for web targets
 
 ## Still open
 
-The complete generated REST surface remains separate work. The auth handoff has
-measured its structural constraint: `HTTPRequest` is a Node, so
+The generated REST surface ships as `addons/haiven/haiven_rest_api.gd`, built
+from the public Haiven gaming HTTP API v0 OpenAPI description. The auth handoff
+has measured its structural constraint: `HTTPRequest` is a Node, so
 `HaivenHandoff` is also a Node and must be attached to the scene tree before a
 default exchange. The protocol/session objects remain plain `RefCounted`s.
 
@@ -238,9 +239,16 @@ for `--headless`, `--import`, and `--script`.
 
 release-please cuts every release from `main`. Work lands on `sdk-dev`. The
 Promotion PR workflow keeps one `sdk-dev` -> `main` pull request open, and
-release-please keeps one release pull request open on `main` that bumps
-`version` in `addons/haiven/plugin.cfg`, `CHANGELOG.md`, and
-`.release-please-manifest.json`. To release:
+release-please keeps one release pull request open on `main` that bumps four
+files:
+
+- `CHANGELOG.md`
+- `version` in `addons/haiven/plugin.cfg`
+- the `X-Haiven-SDK: godot/<version>` header in
+  `addons/haiven/haiven_http_transport.gd`
+- `.release-please-manifest.json`
+
+To release:
 
 1. Merge the promotion pull request with a merge commit, not squash or rebase,
    so `main` holds each `sdk-dev` commit.
@@ -256,9 +264,12 @@ release-please keeps one release pull request open on `main` that bumps
    the GitHub release.
 4. Merge `main` back into `sdk-dev` with a merge commit.
 
-Do not bump `plugin.cfg` or push a `v<version>` tag by hand. release-please owns
-both; a hand-made tag leaves the manifest behind, and release-please then
-proposes a version whose tag already exists.
+Do not bump `plugin.cfg` or the `X-Haiven-SDK` header by hand, and do not push a
+`v<version>` tag by hand. release-please owns all three; a hand-made tag leaves
+the manifest behind, and release-please then proposes a version whose tag
+already exists. The `version` block in `plugin.cfg` and the header line in
+`haiven_http_transport.gd` carry `x-release-please` marker comments. Keep them:
+release-please leaves a line without its marker unchanged.
 
 The `v<version>` tag push runs `.github/workflows/release.yml`, which publishes
 three assets to the GitHub release for that tag:
@@ -273,6 +284,8 @@ three assets to the GitHub release for that tag:
 
 The tag must match `version` in `addons/haiven/plugin.cfg`, or the build fails
 before anything is published; the release pull request keeps the two in step.
+The build also fails when the `X-Haiven-SDK` header version differs from
+`plugin.cfg` or the header line has lost its marker.
 A version with a pre-release suffix (`v1.2.3-rc.1`) is published as a GitHub
 pre-release. Pull requests against `main` and manual runs build the same
 assets as a workflow artifact and do not publish.
