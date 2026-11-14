@@ -156,7 +156,7 @@ was added — no game would ever pass one.
 
 **The live fixture is not in this repository.** `conformance_test.gd` expects a
 process that prints its bound port on stdout. Godot cannot read that stream,
-and the program that started `haiven-backend/cmd/wsfixture` is not in this
+and the program that started `the websocket fixture` is not in this
 tree, so `conformance_test.gd` is not a standalone check. The headless scripts
 below are.
 
