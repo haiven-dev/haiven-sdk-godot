@@ -10,9 +10,13 @@ extends Node
 signal completed(credential: Dictionary)
 signal failed(error: String)
 
+const Protocol := preload("haiven_protocol.gd")
 const DEFAULT_TRANSACTION_LIFETIME_MSEC := 15 * 60 * 1000
 const PKCE_BYTES := 32
 const FORM_CONTENT_TYPE := "Content-Type: application/x-www-form-urlencoded"
+const END_EXPIRED := "expired"
+const END_REST_401 := "rest_401"
+const END_WS_EXPIRED := "ws_expired"
 
 var _entry_url: String
 var _exchange_url: String
@@ -95,9 +99,62 @@ func begin_login() -> Dictionary:
 	}
 
 
+## Reuses the credential the token store saved, so a restart does not send the
+## player back to the browser. Call it before [method begin_login]: it returns
+## `{ok: true, credential}` or `{ok: false, error: "no_saved_credential"}`, and
+## the caller then begins a handoff. Finding nothing is not a failure, so it does
+## not emit [signal failed]. A saved credential past its expiry is cleared. A
+## reused credential emits [signal completed] like a finished handoff.
+func resume() -> Dictionary:
+	if not _configuration_error.is_empty():
+		return _failure(_configuration_error)
+	var none := {"ok": false, "error": "no_saved_credential"}
+	if not _tokens.has_method("load_credential"):
+		return none
+	var loaded: Variant = _tokens.call("load_credential")
+	if not loaded is Dictionary or (loaded as Dictionary).is_empty():
+		return none
+	var saved: Dictionary = loaded
+	var access_token: Variant = saved.get("access_token")
+	var saved_expiry: Variant = saved.get("expires_at_msec", -1)
+	# A store that round-trips through JSON hands back a whole float, which
+	# compares exactly; a relative-tolerance check would also pass fractions.
+	var expiry_is_integer := (
+		saved_expiry is int
+		or (saved_expiry is float and float(saved_expiry) == floorf(float(saved_expiry)))
+	)
+	var expires_at := int(saved_expiry) if expiry_is_integer else 0
+	if (
+		not access_token is String
+		or String(access_token).is_empty()
+		or not expiry_is_integer
+		or (expires_at >= 0 and int(_now.call()) >= expires_at)
+	):
+		_tokens.call("clear")
+		return none
+	_tokens.call("write", access_token, expires_at)
+	var credential := {
+		"access_token": access_token,
+		"token_type": "Bearer",
+		"expires_at_msec": expires_at,
+	}
+	completed.emit(credential)
+	return {"ok": true, "credential": credential}
+
+
+## Clears a bearer ended by metadata expiry, REST 401, or auth.expired and
+## starts a fresh handoff. Game credentials never use the web refresh route.
+func restart_login(reason: String) -> Dictionary:
+	if reason not in [END_EXPIRED, END_REST_401, END_WS_EXPIRED]:
+		return _failure("invalid_credential_end_reason")
+	_tokens.call("clear")
+	return begin_login()
+
+
 ## Delivers the callback URI and exchanges its code. The returned dictionary is
 ## `{ok: true, credential: {access_token, token_type, expires_at_msec}}` or
-## `{ok: false, error}`. State is consumed before the network request.
+## `{ok: false, error}`, where `expires_at_msec` is -1 for a durable credential
+## (one with no fixed expiry). State is consumed before the network request.
 func complete(callback_url: String) -> Dictionary:
 	if not _configuration_error.is_empty():
 		return _failure(_configuration_error)
@@ -178,26 +235,35 @@ func _http_exchange(url: String, headers: PackedStringArray, body: String) -> Di
 func _parse_exchange_response(response: Dictionary) -> Dictionary:
 	if int(response.get("status", 0)) < 200 or int(response.get("status", 0)) >= 300:
 		return {"ok": false, "error": "exchange_http_%d" % int(response.get("status", 0))}
-	var value: Variant = JSON.parse_string(String(response.get("body", "")))
+	var text := String(response.get("body", ""))
+	var value: Variant = JSON.parse_string(text)
 	if not value is Dictionary:
 		return {"ok": false, "error": "invalid_credential"}
+	# The parse has already rounded an integer beyond 2^53 - 1 (`expires_in`,
+	# say), so the check reads the raw text and refuses rather than trusting it.
+	if Protocol.find_unsafe_integer(text) != "":
+		return {"ok": false, "error": Protocol.INTEGER_PRECISION_EXCEEDED}
 	var payload: Dictionary = value
 	if payload.has("refresh_token"):
 		return {"ok": false, "error": "forbidden_refresh_credential"}
 	var access_token: Variant = payload.get("access_token")
 	var token_type: Variant = payload.get("token_type")
 	var expires_in: Variant = payload.get("expires_in")
+	# Present but null for a durable credential, which has no fixed expiry.
+	var durable := payload.has("expires_in") and expires_in == null
+	# A finite lifetime is a whole number of seconds. The
+	# comparison is exact: is_equal_approx scales its tolerance with the value
+	# and would accept 86400.5.
 	var expiry_is_integer := (
 		expires_in is int
-		or (expires_in is float and is_equal_approx(float(expires_in), floorf(float(expires_in))))
+		or (expires_in is float and float(expires_in) == floorf(float(expires_in)))
 	)
 	if (
 		not access_token is String
 		or String(access_token).is_empty()
 		or not token_type is String
 		or String(token_type).is_empty()
-		or not expiry_is_integer
-		or int(expires_in) < 0
+		or not (durable or (expiry_is_integer and int(expires_in) >= 0))
 	):
 		return {"ok": false, "error": "invalid_credential"}
 	return {
@@ -205,7 +271,7 @@ func _parse_exchange_response(response: Dictionary) -> Dictionary:
 		"credential": {
 			"access_token": access_token,
 			"token_type": token_type,
-			"expires_at_msec": int(_now.call()) + int(expires_in) * 1000,
+			"expires_at_msec": -1 if durable else int(_now.call()) + int(expires_in) * 1000,
 		},
 	}
 
@@ -337,7 +403,7 @@ func _validate_configuration() -> String:
 		return "missing_integration_id"
 	if _transaction_lifetime_msec <= 0:
 		return "invalid_transaction_lifetime"
-	if _tokens == null or not _tokens.has_method("write"):
+	if _tokens == null or not _tokens.has_method("write") or not _tokens.has_method("clear"):
 		return "invalid_token_store"
 	return ""
 

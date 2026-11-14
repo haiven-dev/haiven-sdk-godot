@@ -1,6 +1,6 @@
 # Can the signal-based Godot idiom be driven by the conformance step vocabulary?
 #
-# That was the open half of #sdkgodot. The corpus's verbs are PULL-shaped —
+# That was the open question for the Godot SDK. The corpus's verbs are PULL-shaped —
 # `expect` means "the next frame to arrive must match", `expectSilence` means
 # "nothing arrives within ms" — and an idiomatic Godot API is PUSH-shaped: it
 # emits signals and the game connects handlers. A push API has no "next frame"
@@ -173,6 +173,39 @@ func _initialize() -> void:
 	_session.close()
 	_pump(200)
 	check("close reaches the closed state", _session.state == Session.State.CLOSED)
+	check(
+		"the caller's own close is a transport close",
+		_session.close_kind == Protocol.CloseKind.TRANSPORT,
+	)
+
+	# A close says what it means for the credential, as the WebSocket API
+	# documents for game sockets: a refused or revoked credential needs a new
+	# sign-in, a dropped connection keeps it, and no 1008 is worth reconnecting
+	# into.
+	var cases := [
+		[1008, "unauthorized", Protocol.CloseKind.CREDENTIAL_REFUSED],
+		[1008, "credential_revoked", Protocol.CloseKind.CREDENTIAL_REVOKED],
+		[1008, "parental_consent_denied", Protocol.CloseKind.POLICY],
+		[1000, "", Protocol.CloseKind.TRANSPORT],
+		[1006, "", Protocol.CloseKind.TRANSPORT],
+		[1000, "credential_revoked", Protocol.CloseKind.TRANSPORT],
+	]
+	var classified := true
+	for case in cases:
+		var kind: int = Protocol.classify_close(case[0], case[1])
+		classified = classified and kind == case[2]
+		classified = (
+			classified
+			and Protocol.close_may_reconnect(kind) == (kind == Protocol.CloseKind.TRANSPORT)
+		)
+	check("a close classifies by its code and reason alone", classified)
+	check(
+		"only a refused or revoked credential requires a new sign-in",
+		Protocol.close_requires_sign_in(Protocol.CloseKind.CREDENTIAL_REFUSED)
+		and Protocol.close_requires_sign_in(Protocol.CloseKind.CREDENTIAL_REVOKED)
+		and not Protocol.close_requires_sign_in(Protocol.CloseKind.POLICY)
+		and not Protocol.close_requires_sign_in(Protocol.CloseKind.TRANSPORT),
+	)
 
 	_report()
 

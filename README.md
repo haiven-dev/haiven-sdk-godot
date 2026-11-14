@@ -154,16 +154,11 @@ request id per step and the addon mints ids internally; driving its `next_id`
 Callable from a variable set before each step is enough. No per-call id argument
 was added — no game would ever pass one.
 
-**The fixture lives in Python, not GDScript.** Godot cannot read a subprocess's
-stdout, and the fixture announces its bound port on exactly that. So
-`scripts/check-godot.py` builds and runs `haiven-backend/cmd/wsfixture`, reads
-the announce line and passes the endpoints in as environment; GDScript keeps
-only the part that is about the protocol. The stage skips loudly without the
-backend checkout or Go, like the rest of the live tier, and the harness
-recomputes the expected scenario count from the suite document rather than
-trusting the number the runner reports about itself — a waiver that swallowed a
-scenario fails the stage instead of going quietly green on a suite that stopped
-testing anything.
+**The live fixture is not in this repository.** `conformance_test.gd` expects a
+process that prints its bound port on stdout. Godot cannot read that stream,
+and the program that started `the websocket fixture` is not in this
+tree, so `conformance_test.gd` is not a standalone check. The headless scripts
+below are.
 
 ## The .NET flavour
 
@@ -187,48 +182,56 @@ projects also cannot export to the web; use the GDScript flavour for web targets
 
 ## Still open
 
-The complete generated REST surface remains separate work. The auth handoff has
-measured its structural constraint: `HTTPRequest` is a Node, so
+The generated REST surface ships as `addons/haiven/haiven_rest_api.gd`, built
+from the public Haiven gaming HTTP API v0 OpenAPI description. The auth handoff
+has measured its structural constraint: `HTTPRequest` is a Node, so
 `HaivenHandoff` is also a Node and must be attached to the scene tree before a
 default exchange. The protocol/session objects remain plain `RefCounted`s.
 
 ## Running it
 
-```
-make check        # from the repository root
-```
-
-`make check` skips loudly without `godot`, and skips just as loudly when the
-editor on `PATH` is not the pinned version — an Arch 4.7.2 is not a run this
-project is measured on. `scripts/check-godot.py` holds that pin as
-`PINNED_VERSION`, which is also what `GODOT_EXPECTED_VERSION` defaults to, so
-the dedicated target refuses a wrong editor up front instead of failing later
-inside the import. `make check-godot-ci` requires the editor and Python 3: it
-fails on a missing engine, a wrong version, import/script errors, timeout, or
-missing completion records (13 protocol, 15 session, and 34 handoff assertions). Each run
-imports a temporary clean project so an existing editor cache cannot hide an
-import failure. Logs remain in `build/godot-results/`, including on failure.
-
-The `Godot editor` CI job runs on every PR and main push with the official
-Godot **4.5.1 stable** Linux editor, pinned by release URL and SHA-256 digest.
-The official 4.7.2 binary reported `Parameter "singleton" is null` during this
-project's headless import, so it is not the CI pin.
-It has a ten-minute job limit, a 120-second limit per engine stage, and always
-uploads logs. There is no engine-availability skip in this job. Repository
-branch protection can require the `Godot editor` status check.
-
-`make check-godot-dotnet` is separate from the GDScript engine stages. It builds
-the addon against the pinned Godot .NET SDK and skips loudly without `dotnet`;
-`make check-csharp` exercises the shared session state machine without an engine.
-
-To reproduce with an explicit editor:
+This repository has no Makefile. `ci/check_editor.py` imports a clean copy of
+this project and requires each headless script's completion line. The measured
+editor is Godot **4.5.1 stable**. Godot 4.7.2 is not: its headless import
+reports `Parameter "singleton" is null`.
 
 ```sh
-GODOT_BIN=/path/to/godot GODOT_EXPECTED_VERSION=4.5.1 make check-godot-ci
+python3 ci/check_editor.py
 ```
 
-`GODOT_LOG_DIR` and `GODOT_TIMEOUT_SECONDS` override the log location and per-stage
-timeout. CI checks the engine version before import. See the
+`GODOT_BIN` selects the editor (default: `godot` on `PATH`).
+`GODOT_EXPECTED_VERSION` defaults to `4.5.1`. `GODOT_LOG_DIR` and
+`GODOT_TIMEOUT_SECONDS` override the log directory and the per-stage timeout.
+A missing editor, a wrong version, an import failure, a script error, a
+timeout, or a missing completion line fails the run. Logs stay in
+`build/godot-results/`.
+
+After the import, `ci/check_editor.py` runs each script in its `STAGES`
+table: every `*_test.gd` script at the repository root except
+`conformance_test.gd` (protocol, session, handoff, chat, rest_api, identity,
+rewards, ws_api, contracts, vocabulary, and analytics). Each must print its
+`HAIVEN_TEST_PASS <suite> <count>` line exactly once. `STAGES` holds the
+expected counts, so a new script or a changed assertion count is recorded
+there. To run one script by hand after an import:
+
+```sh
+godot --headless --path . --import
+godot --headless --path . --script session_test.gd
+```
+
+`conformance_test.gd` is not one of these checks.
+
+`.github/workflows/editor.yml` runs `ci/check_editor.py` on pull requests,
+manual dispatch, and `v*` tags. It downloads the official 4.5.1 stable Linux
+editor and checks the SHA-256. The job limit is 15 minutes, each stage 120
+seconds, and logs are uploaded even on failure. There is no
+engine-availability skip.
+
+`.github/workflows/release.yml` builds the addon and .NET zips. That is the
+dotnet build for this repository; there is no separate C# Makefile target.
+`python3 ci/package_release.py` is the local form. See Releases below.
+
+See the
 [Godot command-line reference](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html)
 for `--headless`, `--import`, and `--script`.
 
@@ -236,9 +239,16 @@ for `--headless`, `--import`, and `--script`.
 
 release-please cuts every release from `main`. Work lands on `sdk-dev`. The
 Promotion PR workflow keeps one `sdk-dev` -> `main` pull request open, and
-release-please keeps one release pull request open on `main` that bumps
-`version` in `addons/haiven/plugin.cfg`, `CHANGELOG.md`, and
-`.release-please-manifest.json`. To release:
+release-please keeps one release pull request open on `main` that bumps four
+files:
+
+- `CHANGELOG.md`
+- `version` in `addons/haiven/plugin.cfg`
+- the `X-Haiven-SDK: godot/<version>` header in
+  `addons/haiven/haiven_http_transport.gd`
+- `.release-please-manifest.json`
+
+To release:
 
 1. Merge the promotion pull request with a merge commit, not squash or rebase,
    so `main` holds each `sdk-dev` commit.
@@ -254,9 +264,12 @@ release-please keeps one release pull request open on `main` that bumps
    the GitHub release.
 4. Merge `main` back into `sdk-dev` with a merge commit.
 
-Do not bump `plugin.cfg` or push a `v<version>` tag by hand. release-please owns
-both; a hand-made tag leaves the manifest behind, and release-please then
-proposes a version whose tag already exists.
+Do not bump `plugin.cfg` or the `X-Haiven-SDK` header by hand, and do not push a
+`v<version>` tag by hand. release-please owns all three; a hand-made tag leaves
+the manifest behind, and release-please then proposes a version whose tag
+already exists. The `version` block in `plugin.cfg` and the header line in
+`haiven_http_transport.gd` carry `x-release-please` marker comments. Keep them:
+release-please leaves a line without its marker unchanged.
 
 The `v<version>` tag push runs `.github/workflows/release.yml`, which publishes
 three assets to the GitHub release for that tag:
@@ -271,6 +284,8 @@ three assets to the GitHub release for that tag:
 
 The tag must match `version` in `addons/haiven/plugin.cfg`, or the build fails
 before anything is published; the release pull request keeps the two in step.
+The build also fails when the `X-Haiven-SDK` header version differs from
+`plugin.cfg` or the header line has lost its marker.
 A version with a pre-release suffix (`v1.2.3-rc.1`) is published as a GitHub
 pre-release. Pull requests against `main` and manual runs build the same
 assets as a workflow artifact and do not publish.

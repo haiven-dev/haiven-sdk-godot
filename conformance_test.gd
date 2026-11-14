@@ -4,19 +4,18 @@
 # `ts/test/conformance.test.ts` and `csharp/Haiven.Sdk.Conformance` both drive a
 # bare transcript client on purpose — a bug in the binding must not be able to
 # mask a server assertion. This one deliberately does the opposite and drives
-# `addons/haiven`, because the question #sdkconformance names is not "does the
+# `addons/haiven`, because the question this runner asks is not "does the
 # server answer" (two runners already say yes) but **whether the signal-based
 # Godot idiom can be driven by the conformance step vocabulary at all**.
 # `session_test.gd` answered that in miniature, against an in-process socket and
 # hand-written frames. This answers it the only way that settles it: the real
 # published suite, against the real backend, through the real addon.
 #
-# The fixture is owned by `scripts/check-godot.py`, which builds and starts
-# `haiven-backend/cmd/wsfixture`, reads its announced endpoints and passes them
-# in as environment. Godot cannot read a subprocess's stdout, and the announce
-# line is how the fixture publishes its port — so the process lifecycle lives
-# where it can be observed and GDScript keeps only the part that is about the
-# protocol.
+# This script is not a standalone check. It expects a live fixture process,
+# started outside Godot, to pass its endpoints in the environment. Godot cannot
+# read a subprocess's stdout, and the program that builds
+# `the websocket fixture` is not in this repository. The checks that do
+# run here are protocol_test.gd, session_test.gd, and handoff_test.gd.
 
 extends SceneTree
 

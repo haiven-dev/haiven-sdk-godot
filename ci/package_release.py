@@ -13,6 +13,11 @@ Produces, in --out:
 The version must equal addons/haiven/plugin.cfg's `version`; the script fails
 otherwise, so a tag cannot publish assets that report a different version.
 
+The `X-Haiven-SDK: godot/<version>` header in
+addons/haiven/haiven_http_transport.gd must carry the same version and end with
+the `# x-release-please-version` marker that lets the release pull request bump
+it; the script fails otherwise, so a lost marker cannot ship a stale header.
+
 Haiven.Godot.csproj references ../haiven-sdk-unity/core/Haiven.Sdk.Core.csproj,
 which in turn compiles ../../haiven-sdk-dotnet/Haiven.Sdk/*.cs. Those paths are
 relative to sibling checkouts, so the build copies the three inputs into a
@@ -36,6 +41,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 PLUGIN_CFG = REPO / "addons" / "haiven" / "plugin.cfg"
+TRANSPORT = REPO / "addons" / "haiven" / "haiven_http_transport.gd"
+# The one line that sends the SDK version. release-please's Generic updater
+# rewrites the first version on a line only when the line carries the marker.
+SDK_HEADER = re.compile(r'"X-Haiven-SDK: godot/([^"]*)"')
+RELEASE_MARKER = re.compile(r"#\s*x-release-please-version\s*$")
 CSPROJ = "Haiven.Godot.csproj"
 SEMVER = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
@@ -62,6 +72,35 @@ def plugin_version() -> str:
     if not match:
         fail(f"no version= line in {PLUGIN_CFG.relative_to(REPO)}")
     return match.group(1)
+
+
+def check_sdk_header(declared: str) -> None:
+    """Fail unless the X-Haiven-SDK header matches plugin.cfg and stays release-managed."""
+    rel = TRANSPORT.relative_to(REPO).as_posix()
+    lines = [
+        (number, line)
+        for number, line in enumerate(TRANSPORT.read_text("utf-8").splitlines(), 1)
+        if SDK_HEADER.search(line)
+    ]
+    if len(lines) != 1:
+        fail(
+            f"expected exactly one \"X-Haiven-SDK: godot/<version>\" line in {rel}, "
+            f"found {len(lines)}"
+        )
+    number, line = lines[0]
+    header = SDK_HEADER.search(line).group(1)
+    if not RELEASE_MARKER.search(line):
+        fail(
+            f"{rel}:{number}: the X-Haiven-SDK header line must end with "
+            f"`# x-release-please-version`; without it the release pull request "
+            f"leaves the header at godot/{header}"
+        )
+    if header != declared:
+        fail(
+            f"{rel}:{number}: X-Haiven-SDK header version {header} does not match "
+            f"addons/haiven/plugin.cfg version {declared}; the release pull request "
+            f"bumps both together, so set the header to godot/{declared}"
+        )
 
 
 def tracked_files(repo: Path, *pathspecs: str) -> list[str]:
@@ -200,6 +239,7 @@ def main() -> None:
     args = parser.parse_args()
 
     declared = plugin_version()
+    check_sdk_header(declared)
     version = args.version if args.version is not None else declared
     if not SEMVER.match(version):
         fail(f"version {version!r} is not semver (expected e.g. 1.2.3 or 1.2.3-rc.1)")

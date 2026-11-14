@@ -1,0 +1,2133 @@
+# Generated from the public Haiven gaming HTTP API v0 OpenAPI description.
+# Do not edit by hand.
+# Game handoff credential policy: Cache-Control: no-store; no refresh credential.
+
+## Typed operations over an injected REST transport.
+##
+## [code]request[/code] is [code]func(method: String, path: String, body: Variant, content_type: String) -> Variant[/code]:
+## it prefixes the API base URL, adds authentication, encodes [code]body[/code] as
+## [code]content_type[/code] (JSON, or a form for the handoff exchange), sends it with an engine
+## [HTTPRequest], and returns the decoded success body. It may be a coroutine; every
+## generated method awaits it. [code]url[/code] is [code]func(path: String) -> String[/code],
+## the absolute URL for the operations a browser navigates to instead.
+class_name HaivenRestApi
+extends RefCounted
+
+var _request: Callable
+var _url: Callable
+
+
+func _init(request: Callable, url: Callable = Callable()) -> void:
+	_request = request
+	_url = url
+
+
+static func _build_path(template: String, path_values: Array, query_values: Array) -> String:
+	var path := template
+	for pair: Array in path_values:
+		path = path.replace("{%s}" % pair[0], _format(pair[1]).uri_encode())
+	var query := PackedStringArray()
+	for pair: Array in query_values:
+		var raw: Variant = pair[1]
+		var values: Array = raw if raw is Array else [raw]
+		for value: Variant in values:
+			if value == null:
+				continue
+			query.append("%s=%s" % [String(pair[0]).uri_encode(), _format(value).uri_encode()])
+	return path if query.is_empty() else "%s?%s" % [path, "&".join(query)]
+
+
+static func _format(value: Variant) -> String:
+	if value is bool:
+		return "true" if value else "false"
+	return str(value)
+
+
+## GET /age-gate/requirements -- Get a jurisdiction's age-gate requirements
+## Unauthenticated and pre-signup: what a jurisdiction requires before any Haiven account exists to check it against (whether the age gate should even display, the digital consent/civil/minimum ages, approved age-collection methods).
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded AgeGateRequirementsResponse body.
+func get_age_gate_requirements(jurisdiction: String) -> Variant:
+	return await _request.call("GET", _build_path("/age-gate/requirements", [], [["jurisdiction", jurisdiction]]), null, "")
+
+
+## GET /announcements -- Announcements
+## Published platform announcements, newest first. Drafts and posts scheduled for later are never listed. `category` narrows the list to news or patch notes.
+## Tags: announcements.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AnnouncementPage body.
+func get_announcements(category: Variant = null, limit: Variant = null, offset: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/announcements", [], [["category", category], ["limit", limit], ["offset", offset]]), null, "")
+
+
+## POST /announcements/last-read/{announcement_id} -- Mark announcements read
+## Moves the caller's read position up to a published announcement, normally the newest one they were shown, so it and everything older stop counting as unread. The position never moves back: naming an older post changes nothing. Answers 404 for a post that does not exist or is not published.
+## Tags: announcements.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_announcements_last_read_announcement_id(announcement_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/announcements/last-read/{announcement_id}", [["announcement_id", announcement_id]], []), null, "")
+
+
+## GET /announcements/unread -- Unread announcement count
+## How many announcements were published after the caller's read position, for a badge. Before a user has read any, posts published before they signed up do not count.
+## Tags: announcements.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UnreadCount body.
+func get_announcements_unread() -> Variant:
+	return await _request.call("GET", _build_path("/announcements/unread", [], []), null, "")
+
+
+## GET /apps -- Browse and search the store
+## The store catalog: published apps, filtered and sorted. Every filter is optional; `tag` may repeat and matches apps carrying every tag given. `sort` defaults to `relevance` with `q` and `new` without. Public.
+## Tags: store.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AppPage body.
+func get_apps(q: Variant = null, tag: Variant = null, platform: Variant = null, early_access: Variant = null, sort: Variant = null, limit: Variant = null, offset: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/apps", [], [["q", q], ["tag", tag], ["platform", platform], ["earlyAccess", early_access], ["sort", sort], ["limit", limit], ["offset", offset]]), null, "")
+
+
+## GET /apps/tags -- Get all tags in the database
+## returns all tags in the database
+## Tags: apps.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded Tag[] body.
+func get_apps_tags() -> Variant:
+	return await _request.call("GET", _build_path("/apps/tags", [], []), null, "")
+
+
+## GET /apps/{app_id} -- An app's store page
+## An app's store page, by its UUID. Public. A published or archived app's page, or an unlisted one's: an app that is not yet published is in no list, shelf or search, but its page opens for anyone with its URL, and says unlisted: true. A rejected app has no page.
+## Tags: store.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 404 no app with a page has this id: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded StoreApp body.
+func get_apps_app_id(app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/apps/{app_id}", [["app_id", app_id]], []), null, "")
+
+
+## POST /apps/{app_id}/report -- Report App
+## Reports a published game to Haiven. The caller can report the same game once per hour. **NOTE:** The game's studio is not notified.
+## Tags: apps.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_app_id, failed_to_decode_json, report_reason_invalid, report_limit_reached. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_apps_app_id_report(app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/apps/{app_id}/report", [["app_id", app_id]], []), body, "application/json")
+
+
+## GET /auth/callback -- Complete Cognito SSO federation
+## Redeems the authorization code Cognito returned, verifies the ID token and resolves the identity. Requires the state to match the federation_state cookie set at the initiate step (Swagger 2.0 has no cookie parameter location to declare it here). Redirects the browser to the completion URL with a one-use code, whether the sign-in succeeded or failed. The client that started the sign-in redeems the code at POST /auth/sso/result; nothing else about the outcome is put in the URL. Only without a completion URL configured is a failure answered here with the JSON error. A link a signed-in account started from settings always redirects to the completion URL with link=<provider>, successful or not, so the window it ran in can close: its outcome is sent to the account's sockets as account.identity.linked or account.identity.link.failed. A sign-in whose email is an existing account's is never linked automatically.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 Conflict: email_registered_with_password, email_registered_with_sso, identity_already_linked, provider_already_linked. 503 Service Unavailable: internal_error.
+## A browser navigation: open the returned absolute URL rather than requesting it.
+func get_auth_callback_url(code: String, state: String) -> String:
+	return _url.call(_build_path("/auth/callback", [], [["code", code], ["state", state]]))
+
+
+## POST /auth/challenge -- Respond to an auth challenge
+## Answers a Cognito auth challenge returned by login, using the session from that response. Returns tokens, or the next challenge if the flow is not finished. A login that was linking an SSO sign-in sends its continuation token here too: the link is made once the challenge is cleared, as login does.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, username_required, challenge_session_required, challenge_unsupported, challenge_field_required, continuation_invalid. 401 Unauthorized: unauthorized. 409 Conflict: identity_already_linked, provider_already_linked. 500 Internal Server Error: internal_error.
+## Resolves to the decoded LoginResponse body.
+func post_auth_challenge(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/challenge", [], []), body, "application/json")
+
+
+## POST /auth/confirm-forgot-password -- Confirm forgot password request
+## Completes a user forgot password flow, then ends every session the account has
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_json, username_or_email_required, confirmation_code_required, new_password_required, token_expired_or_not_found, password_invalid. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_auth_confirm_forgot_password(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/confirm-forgot-password", [], []), body, "application/json")
+
+
+## POST /auth/forgot-password -- Forgot password request
+## Starts a user forgot password flow
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, username_or_email_required. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_auth_forgot_password(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/forgot-password", [], []), body, "application/json")
+
+
+## POST /auth/handoff -- Create a game login handoff code
+## Binds the current access token to an integration, exact callback, account, and S256 challenge in a one-use code that expires within 60 seconds and never outlives the token.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error. 503 Service Unavailable: internal_error.
+## Resolves to the decoded CreateHandoffResponse body.
+func post_auth_handoff(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/handoff", [], []), body, "application/json")
+
+
+## GET /auth/handoff/config -- Validate a game login handoff entry
+## Validates an integration, completion mode, exact redirect allowlist entry, state, and PKCE challenge before login and returns trusted integration metadata.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 503 Service Unavailable: internal_error.
+## Resolves to the decoded HandoffEntry body.
+func get_auth_handoff_config(integration_id: String, completion: Variant = null, redirect_uri: Variant = null, state: Variant = null, code_challenge: Variant = null, code_challenge_method: Variant = null, instructions_id: Variant = null, screen_hint: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/auth/handoff/config", [], [["integration_id", integration_id], ["completion", completion], ["redirect_uri", redirect_uri], ["state", state], ["code_challenge", code_challenge], ["code_challenge_method", code_challenge_method], ["instructions_id", instructions_id], ["screen_hint", screen_hint]]), null, "")
+
+
+## GET /auth/handoff/credential -- Read the current handoff credential
+## Returns the bearer a game receives for the configured integration: the caller's own access token and its expiry, or, where the deployment opts in, a new revocable game credential. It never returns a refresh credential.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 503 Service Unavailable: internal_error.
+## Resolves to the decoded HandoffCredential body.
+func get_auth_handoff_credential(integration_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/auth/handoff/credential", [], [["integration_id", integration_id]]), null, "")
+
+
+## POST /auth/handoff/exchange -- Exchange a game login handoff code
+## Atomically consumes a one-use code after validating its integration, exact callback, expiry, and S256 verifier. Returns the bearer bound at creation and no refresh credential.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error. 503 Service Unavailable: internal_error.
+## Resolves to the decoded ExchangeHandoffResponse body.
+func post_auth_handoff_exchange(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/handoff/exchange", [], []), body, "application/x-www-form-urlencoded")
+
+
+## POST /auth/login -- Login user
+## Signs a user in with their username or email and password. With the continuation token of an SSO sign-in that ended in link_required, the provider is linked to the account before the session is issued. A wrong password leaves the token usable. An unknown or expired token, or one for another account, answers continuation_invalid, and a refused link signs nobody in.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, username_or_email_required, continuation_invalid. 401 Unauthorized: unauthorized. 409 Conflict: identity_already_linked, provider_already_linked. 500 Internal Server Error: internal_error.
+## Resolves to the decoded LoginResponse body.
+func post_auth_login(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/login", [], []), body, "application/json")
+
+
+## POST /auth/logout -- Logout user
+## Ends the single session the presented refresh token belongs to. Other sessions the user has open are left signed in; use the session endpoints to see or end those.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error, logout_failed.
+## Resolves to null: the operation answers without a body.
+func post_auth_logout(body: Variant = null) -> Variant:
+	return await _request.call("POST", _build_path("/auth/logout", [], []), body, "application/json")
+
+
+## POST /auth/refresh -- Refresh user session
+## Refresh user, using their refresh cookie
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized, failed_to_decode_json. 503 Service Unavailable: internal_error.
+## Resolves to the decoded LoginResponse body.
+func post_auth_refresh(body: Variant = null) -> Variant:
+	return await _request.call("POST", _build_path("/auth/refresh", [], []), body, "application/json")
+
+
+## POST /auth/signup -- Create a new account
+## Creates the account for an email already verified via validate-email/confirm
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, email_required, email_invalid, password_required, password_invalid, username_invalid, date_of_birth_required, date_of_birth_invalid, jurisdiction_required, jurisdiction_invalid. 403 Forbidden: forbidden. 409 Conflict: email_exists, user_exists, email_registered_with_sso, email_registered_with_password, identity_already_linked. 500 Internal Server Error: internal_error, user_creation_failed. 503 Age assurance (k-ID) unavailable: age_assurance_unavailable.
+## Resolves to the decoded SignupResponse body.
+func post_auth_signup(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/signup", [], []), body, "application/json")
+
+
+## POST /auth/signup/confirm -- Confirm signup email verification code
+## Confirms the 6-digit token sent by validate-email, unblocking account creation for that email. Secret must be the value validate-email/resend-code returned for this email.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, confirmation_code_required. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_auth_signup_confirm(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/signup/confirm", [], []), body, "application/json")
+
+
+## POST /auth/signup/resend-code -- Resend signup email verification code
+## Emails a new token for the in-flight verification, replacing the old one without extending its expiry; starts a new verification if none is in flight (expired, or deleted after too many wrong tokens). Secret must be the value validate-email/resend-code returned for this email.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, username_required. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ResendConfirmationCodeResponse body.
+func post_auth_signup_resend_code(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/signup/resend-code", [], []), body, "application/json")
+
+
+## POST /auth/signup/validate-email -- Start signup email verification
+## Checks the email is not already registered and emails it a 6-digit verification token, valid for 30 minutes. A new call replaces any verification in flight for the email, with a new token and secret. An email registered to an account that signs in only with SSO answers email_registered_with_sso: the player signs in with it and adds a password from settings.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, email_required, email_invalid. 409 Conflict: email_exists, email_registered_with_sso. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ValidateEmailResponse body.
+func post_auth_signup_validate_email(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/signup/validate-email", [], []), body, "application/json")
+
+
+## GET /auth/sso/continue -- Continue SSO federation after Cognito's sign-out
+## Cognito's /logout returns the browser here after clearing Cognito's own session, for a sign-in or link that asked for the account chooser. This URL is the app client's registered sign-out URL. Redirects to Cognito's authorize endpoint for the sign-in the federation_state cookie names (Swagger 2.0 has no cookie parameter location to declare it here), without using the state up. A failure redirects to the completion URL with a code, as the callback does, and is only answered here without a completion URL configured.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: federation_state_invalid. 503 Service Unavailable: federation_unavailable.
+## A browser navigation: open the returned absolute URL rather than requesting it.
+func get_auth_sso_continue_url() -> String:
+	return _url.call(_build_path("/auth/sso/continue", [], []))
+
+
+## POST /auth/sso/result -- Redeem an SSO sign-in's outcome
+## The completion page calls this with the code the callback put in its URL and the verifier whose S256 hash started the sign-in. A code is redeemed once, within 5 minutes; an unknown, used or expired code, or the wrong verifier, answers federation_state_invalid. A failed sign-in answers with the error the callback hit: the same status, code and request id. Otherwise it answers how the sign-in ended, and for a signup or link_required outcome the continuation token for the next step.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, federation_state_invalid, federation_provider_invalid. 401 Unauthorized: federation_exchange_failed, unauthorized. 409 Conflict: email_registered_with_password, email_registered_with_sso, identity_already_linked, provider_already_linked. 500 Internal Server Error: internal_error. 503 Service Unavailable: federation_unavailable, auth_unavailable.
+## Resolves to the decoded FederatedResultResponse body.
+func post_auth_sso_result(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/auth/sso/result", [], []), body, "application/json")
+
+
+## GET /auth/sso/{provider} -- Begin Cognito SSO federation
+## Redirects to Cognito's hosted authorize endpoint for the named provider (google or apple), sending the browser straight to that provider. code_challenge is the S256 hash of a secret the client keeps: only the client presenting that secret can redeem the sign-in's outcome at POST /auth/sso/result. With prompt=select_account, and where Cognito's sign-out is configured, the browser first goes through Cognito's /logout to clear Cognito's own session, which returns it to GET /auth/sso/continue. Answers federation_unavailable when SSO is not configured for this environment.
+## Tags: auth.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, unsupported_pkce, federation_provider_invalid. 503 Service Unavailable: federation_unavailable.
+## A browser navigation: open the returned absolute URL rather than requesting it.
+func get_auth_sso_provider_url(provider: String, code_challenge: String, code_challenge_method: String, prompt: Variant = null) -> String:
+	return _url.call(_build_path("/auth/sso/{provider}", [["provider", provider]], [["code_challenge", code_challenge], ["code_challenge_method", code_challenge_method], ["prompt", prompt]]))
+
+
+## GET /avatar-frames -- Avatar frame catalog
+## Returns every equippable avatar frame and the URL of its image, so a client can render any frame reference a profile carries.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded AvatarFramesResponse body.
+func get_avatar_frames() -> Variant:
+	return await _request.call("GET", _build_path("/avatar-frames", [], []), null, "")
+
+
+## GET /catalog/offers -- List or look up catalog offers
+## Without offerCode: the published catalogue, paged in offer code order; pass nextCursor back as after. With one or more offerCode (at most 50): every version of those codes that was ever published, unpaged, so an order for a retired version still resolves. Payments names an order by offerCode and catalogOfferVersion; a client joins the order to this list on that pair for its label and thumbnail.
+## Tags: catalog.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CatalogPage body.
+func get_catalog_offers(offer_code: Variant = null, after: Variant = null, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/catalog/offers", [], [["offerCode", offer_code], ["after", after], ["limit", limit]]), null, "")
+
+
+## POST /chat/channels/{channel_id}/last-read/{message_id} -- Updates user last read
+## Updates users last read for a channel
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_channel_id, invalid_message_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_chat_channels_channel_id_last_read_message_id(channel_id: String, message_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/channels/{channel_id}/last-read/{message_id}", [["channel_id", channel_id], ["message_id", message_id]], []), null, "")
+
+
+## GET /chat/channels/{channel_id}/messages -- Get channel messages
+## Returns a paginated list of messages for the requested channel. **NOTE:** If a parentMessageId is not provided this will only return top level messages.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_channel_id, invalid_before_message_id, invalid_parent_message_id, invalid_limit. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_channel_member. 500 Internal Server Error: internal_error.
+## Resolves to the decoded FetchMessagesResponse body.
+func get_chat_channels_channel_id_messages(channel_id: String, before_message_id: Variant = null, parent_message_id: Variant = null, limit: Variant = null, after_message_id: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/chat/channels/{channel_id}/messages", [["channel_id", channel_id]], [["beforeMessageId", before_message_id], ["afterMessageId", after_message_id], ["parentMessageId", parent_message_id], ["limit", limit]]), null, "")
+
+
+## GET /chat/communities -- Get users communities
+## Returns an array of the users communities and their channels
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunitiesListResponse[] body.
+func get_chat_communities() -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities", [], []), null, "")
+
+
+## POST /chat/communities -- Create new chat community
+## Creates and returns a new chat community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_name. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunityResponse body.
+func post_chat_communities(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities", [], []), body, "application/json")
+
+
+## GET /chat/communities/discovery -- Community Discovery
+## Used to discover public accessible communities. The official community of a game that is not yet published is unlisted, like the game: it is joinable by id but left out here.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded PublicCommunitiesListResponse[] body.
+func get_chat_communities_discovery(before_community_id: Variant = null, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/discovery", [], [["beforeCommunityId", before_community_id], ["limit", limit]]), null, "")
+
+
+## POST /chat/communities/discovery/{community_id}/end-preview -- Community Discovery End Preview
+## Used to end a preview of a public accessible community.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_chat_communities_discovery_community_id_end_preview(community_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/discovery/{community_id}/end-preview", [["community_id", community_id]], []), null, "")
+
+
+## POST /chat/communities/discovery/{community_id}/preview -- Community Discovery Preview
+## Used to preview a public accessible community.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunitiesListResponse body.
+func post_chat_communities_discovery_community_id_preview(community_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/discovery/{community_id}/preview", [["community_id", community_id]], []), null, "")
+
+
+## GET /chat/communities/{community_id} -- Get community
+## Returns the requested community if the calling user is a member
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunitiesListResponse body.
+func get_chat_communities_community_id(community_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}", [["community_id", community_id]], []), null, "")
+
+
+## PATCH /chat/communities/{community_id} -- Update chat community
+## Updates and returns an existing chat community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id, invalid_community_name. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunityResponse body.
+func patch_chat_communities_community_id(community_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/chat/communities/{community_id}", [["community_id", community_id]], []), body, "application/json")
+
+
+## DELETE /chat/communities/{community_id} -- Delete chat community
+## Deletes a chat community. Only its owner may delete it. Members and previewers receive chat.community.deleted and stop receiving its events.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_chat_communities_community_id(community_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/chat/communities/{community_id}", [["community_id", community_id]], []), null, "")
+
+
+## GET /chat/communities/{community_id}/channels -- Get community channels
+## Returns the channels for the given community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_community_member. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ListCommunityChannelsRow[] body.
+func get_chat_communities_community_id_channels(community_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}/channels", [["community_id", community_id]], []), null, "")
+
+
+## POST /chat/communities/{community_id}/channels -- Create a new channel
+## Creates and Returns a new channel for the community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id, invalid_channel_name. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateChannelRow body.
+func post_chat_communities_community_id_channels(community_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/channels", [["community_id", community_id]], []), body, "application/json")
+
+
+## PATCH /chat/communities/{community_id}/channels/{channel_id} -- Updates a channel
+## Updates and Returns a existing channel
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id, invalid_channel_name. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UpdateChannelRow body.
+func patch_chat_communities_community_id_channels_channel_id(community_id: String, channel_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/chat/communities/{community_id}/channels/{channel_id}", [["community_id", community_id], ["channel_id", channel_id]], []), body, "application/json")
+
+
+## GET /chat/communities/{community_id}/groups -- Get community groups
+## Returns an array of groups for the community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_community_member. 500 Internal Server Error: internal_error.
+## Resolves to the decoded GroupResponse[] body.
+func get_chat_communities_community_id_groups(community_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}/groups", [["community_id", community_id]], []), null, "")
+
+
+## POST /chat/communities/{community_id}/groups -- Create community group
+## Creates and returns a new group for the community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id, invalid_group_name. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded GroupResponse body.
+func post_chat_communities_community_id_groups(community_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/groups", [["community_id", community_id]], []), body, "application/json")
+
+
+## PATCH /chat/communities/{community_id}/groups/{group_id} -- Update community group
+## Updates and returns a group for the community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id, invalid_group_id, invalid_group_name. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded GroupResponse body.
+func patch_chat_communities_community_id_groups_group_id(community_id: String, group_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/chat/communities/{community_id}/groups/{group_id}", [["community_id", community_id], ["group_id", group_id]], []), body, "application/json")
+
+
+## DELETE /chat/communities/{community_id}/groups/{group_id} -- Delete community group
+## Deletes a community group
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_group_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_chat_communities_community_id_groups_group_id(community_id: String, group_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/chat/communities/{community_id}/groups/{group_id}", [["community_id", community_id], ["group_id", group_id]], []), null, "")
+
+
+## GET /chat/communities/{community_id}/groups/{group_id}/members -- List community group members
+## Returns a page of a community group's members, lowest user id first. Pass the `nextCursor` from a response back as `afterUserId` to get the following page; a null `nextCursor` is the end of the group.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_group_id, invalid_member_id, invalid_limit. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_community_member. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunityGroupMembersPage body.
+func get_chat_communities_community_id_groups_group_id_members(community_id: String, group_id: String, after_user_id: Variant = null, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}/groups/{group_id}/members", [["community_id", community_id], ["group_id", group_id]], [["afterUserId", after_user_id], ["limit", limit]]), null, "")
+
+
+## POST /chat/communities/{community_id}/groups/{group_id}/members/{user_id} -- Add community group member
+## Adds a user to a community group
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_group_id, invalid_user_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_chat_communities_community_id_groups_group_id_members_user_id(community_id: String, group_id: String, user_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/groups/{group_id}/members/{user_id}", [["community_id", community_id], ["group_id", group_id], ["user_id", user_id]], []), null, "")
+
+
+## DELETE /chat/communities/{community_id}/groups/{group_id}/members/{user_id} -- Remove community group member
+## Removes a user from a community group
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_group_id, invalid_user_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_chat_communities_community_id_groups_group_id_members_user_id(community_id: String, group_id: String, user_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/chat/communities/{community_id}/groups/{group_id}/members/{user_id}", [["community_id", community_id], ["group_id", group_id], ["user_id", user_id]], []), null, "")
+
+
+## POST /chat/communities/{community_id}/images -- Create community image
+## Creates a community icon or cover image and returns a presigned upload URL. The image serves only once it is completed and has cleared review.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id, image_fields_required, invalid_image_type, unsupported_content_type. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateImageItemResponse body.
+func post_chat_communities_community_id_images(community_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/images", [["community_id", community_id]], []), body, "application/json")
+
+
+## POST /chat/communities/{community_id}/images/complete -- Mark community image complete
+## Marks a community image as uploaded and promotes it once it has cleared review. Answers 202 while a verdict is pending and 422 when the image was rejected.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, invalid_community_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 409 Conflict: resource_already_exists. 422 Unprocessable Entity: media_rejected. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Scanning body.
+func post_chat_communities_community_id_images_complete(community_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/images/complete", [["community_id", community_id]], []), body, "application/json")
+
+
+## DELETE /chat/communities/{community_id}/images/{image_type} -- Clear community image
+## Removes the community's icon or cover. Clearing an image the community does not have succeeds.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_image_type. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_chat_communities_community_id_images_image_type(community_id: String, image_type: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/chat/communities/{community_id}/images/{image_type}", [["community_id", community_id], ["image_type", image_type]], []), null, "")
+
+
+## GET /chat/communities/{community_id}/invites -- List community invites
+## Returns a list of all invites for the following community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded InviteResponse[] body.
+func get_chat_communities_community_id_invites(community_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}/invites", [["community_id", community_id]], []), null, "")
+
+
+## POST /chat/communities/{community_id}/invites -- Creates new community invite
+## This will create a new community invite with the provided details
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded InviteResponse body.
+func post_chat_communities_community_id_invites(community_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/invites", [["community_id", community_id]], []), body, "application/json")
+
+
+## POST /chat/communities/{community_id}/join -- Join community
+## Adds calling user as a member to the community **NOTE:** This is will only work for public communities that allow all users to join
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_chat_communities_community_id_join(community_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/communities/{community_id}/join", [["community_id", community_id]], []), null, "")
+
+
+## GET /chat/communities/{community_id}/members -- Get community members
+## Returns a page of the community's members, oldest membership first. Pass the `nextCursor` from a response back as `afterMemberId` to get the following page; a null `nextCursor` is the end of the roster. Members of the community and users currently previewing it may both read the roster.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_member_id, invalid_limit. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_community_member. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunityMembersPage body.
+func get_chat_communities_community_id_members(community_id: String, after_member_id: Variant = null, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}/members", [["community_id", community_id]], [["afterMemberId", after_member_id], ["limit", limit]]), null, "")
+
+
+## DELETE /chat/communities/{community_id}/members/{member_id} -- Remove community member
+## Removes a current member from the community
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id, invalid_member_id, cannot_remove_owner. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_chat_communities_community_id_members_member_id(community_id: String, member_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/chat/communities/{community_id}/members/{member_id}", [["community_id", community_id], ["member_id", member_id]], []), null, "")
+
+
+## GET /chat/communities/{community_id}/stats -- Get community stats
+## Returns the community's activity summary: open reports, message rate and last activity. Restricted to callers holding community.view_insights, which is the owner unless a role has been granted it. messagesPerDay is the mean over the trailing seven days; lastActiveAt is null for a community with no visible messages.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_community_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CommunityStatsResponse body.
+func get_chat_communities_community_id_stats(community_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/chat/communities/{community_id}/stats", [["community_id", community_id]], []), null, "")
+
+
+## GET /chat/me -- List User DMs
+## Returns a list of a users DMs **NOTE:** DMs with a blocked user are omitted, the friend carries a leftAt once they have left the dm, and a DM with someone no longer a friend is readOnly: its history is readable but sends are refused
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded DM[] body.
+func get_chat_me() -> Variant:
+	return await _request.call("GET", _build_path("/chat/me", [], []), null, "")
+
+
+## POST /chat/me/{channel_id}/leave -- Leave DM
+## Leaves a DM the user is a member of **NOTE:** The other member keeps the conversation and is notified over the websocket
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_channel_id. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_chat_me_channel_id_leave(channel_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/me/{channel_id}/leave", [["channel_id", channel_id]], []), null, "")
+
+
+## POST /chat/me/{user_id} -- Create new chat dm
+## Creates and returns a new chat dm with the requested user **NOTE:** The two users must be friends, and a user cannot dm themselves
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_user_id, dm_self_forbidden. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_friends. 500 Internal Server Error: internal_error.
+## Resolves to the decoded DM body.
+func post_chat_me_user_id(user_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/chat/me/{user_id}", [["user_id", user_id]], []), null, "")
+
+
+## POST /chat/messages -- Create message
+## Creates and returns a new message
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, content_required, invalid_channel_id, invalid_parent_message_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_channel_member. 500 Internal Server Error: internal_error.
+## Resolves to the decoded MessageSubmission body.
+func post_chat_messages(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/messages", [], []), body, "application/json")
+
+
+## PATCH /chat/messages -- Edit message
+## Edits and returns a message
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, content_required, invalid_message_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_message_author. 500 Internal Server Error: internal_error.
+## Resolves to the decoded MessageSubmission body.
+func patch_chat_messages(body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/chat/messages", [], []), body, "application/json")
+
+
+## DELETE /chat/messages/{message_id} -- Delete message
+## Delete a message The user must be the message author or have the correct community permissions
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_message_id. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, not_message_author. 404 Not Found: message_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded MessageEvent body.
+func delete_chat_messages_message_id(message_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/chat/messages/{message_id}", [["message_id", message_id]], []), null, "")
+
+
+## POST /chat/messages/{message_id}/report -- Report Message
+## Reports a chat message to Haiven. The reported author and a snapshot of the message are resolved server-side, so only the reason and details are accepted from the caller. The caller must be a member of the message's channel and can report a given message only once. **NOTE:** The author of the reported message is not notified.
+## Tags: chat.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, report_reason_invalid, report_self_forbidden, report_limit_reached. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, message_not_accessible. 404 Not Found: message_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_chat_messages_message_id_report(message_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/chat/messages/{message_id}/report", [["message_id", message_id]], []), body, "application/json")
+
+
+## GET /games/{game_id}/access -- Get my access to a game
+## Returns whether the authenticated player may launch the game with this App ID, and why. A game marked free answers basis free; a game with neither the free marker nor access items answers access false. A game that is missing answers 404, and so does any game but the credential's own for a game credential. An unpublished game answers its own game credential and the caller's studio; a web bearer outside the studio gets 404. 403 forbidden means the bearer is a web token where only a game credential is accepted. 401 means the bearer was refused (missing, invalid, expired, or no account behind it) and the player must sign in again; 503 auth_unavailable means the bearer verified but the account could not be read, and the client retries. 429 rate_limited carries Retry-After in seconds.
+## Tags: games.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded GameAccessResponse body.
+func get_games_game_id_access(game_id: int) -> Variant:
+	return await _request.call("GET", _build_path("/games/{game_id}/access", [["game_id", game_id]], []), null, "")
+
+
+## GET /games/{game_id}/sessions -- List sessions I can join
+## Open public sessions, and friends sessions of a host who is the caller's friend, newest first, 50 a page. Sessions the caller's age group, a block or a signed-out account could not join are left out, and mixed-age sessions are never listed.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: session_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded SessionList body.
+func get_games_game_id_sessions(game_id: int, cursor: Variant = null, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/games/{game_id}/sessions", [["game_id", game_id]], [["cursor", cursor], ["limit", limit]]), null, "")
+
+
+## POST /games/{game_id}/sessions -- Create a peer-to-peer session
+## Opens a session with the caller as host, bound to the caller's game socket named by connectionId. The server decides the age group and the relay policy; public, child and mixed-age sessions are always relay-only. A repeated admissionId with the same body and resumeToken returns the first answer; with anything else it is 409 already_in_session. 409 connection_not_bound means connectionId is not a live game socket of this game and integration.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, age_verification_required, parental_consent_required, jurisdiction_prohibited, own_age_verification_required, child_lite_access_available, game_access_required. 404 Not Found: session_not_found. 409 Conflict: connection_not_bound, already_in_session. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable, relay_unavailable.
+## Resolves to the decoded CreateResponse body.
+func post_games_game_id_sessions(game_id: int, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/games/{game_id}/sessions", [["game_id", game_id]], []), body, "application/json")
+
+
+## GET /games/{game_id}/sessions/{session_id} -- Get a session's roster
+## The session and its current members, for a current member only. The host SDK reads it every 30 seconds to reconcile its connections.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: session_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded Roster body.
+func get_games_game_id_sessions_session_id(game_id: int, session_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/games/{game_id}/sessions/{session_id}", [["game_id", game_id], ["session_id", session_id]], []), null, "")
+
+
+## PATCH /games/{game_id}/sessions/{session_id} -- Update a session
+## The host locks or unlocks the session, changes its visibility within its relay policy, or replaces its metadata. A change to private generates a new joinCode and a change away from private clears it. Every member receives session.updated.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: session_not_found. 409 Conflict: session_update_refused. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded Roster body.
+func patch_games_game_id_sessions_session_id(game_id: int, session_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/games/{game_id}/sessions/{session_id}", [["game_id", game_id], ["session_id", session_id]], []), body, "application/json")
+
+
+## POST /games/{game_id}/sessions/{session_id}/invites -- Invite a friend to a session
+## Sends the friend a Haiven notification with the game and the session. An invite lets the friend join a friends or private session. 404 resource_not_found answers a user who is not the caller's friend, is blocked, or fails the session's age rule.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: session_not_found, resource_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to null: the operation answers without a body.
+func post_games_game_id_sessions_session_id_invites(game_id: int, session_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/games/{game_id}/sessions/{session_id}/invites", [["game_id", game_id], ["session_id", session_id]], []), body, "application/json")
+
+
+## POST /games/{game_id}/sessions/{session_id}/members -- Join a peer-to-peer session
+## Admits the caller as a guest, bound to the caller's game socket named by connectionId. 404 session_not_found answers a missing session and every hidden refusal alike: age group, block, visibility and the mixed-age rule. 403 game_access_required comes after those checks, so it never reveals a hidden session; the SDK offers the store page.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden, age_verification_required, parental_consent_required, jurisdiction_prohibited, own_age_verification_required, child_lite_access_available, kicked_from_session, game_access_required. 404 Not Found: session_not_found. 409 Conflict: connection_not_bound, already_in_session, session_locked, session_full. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded JoinResponse body.
+func post_games_game_id_sessions_session_id_members(game_id: int, session_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/games/{game_id}/sessions/{session_id}/members", [["game_id", game_id], ["session_id", session_id]], []), body, "application/json")
+
+
+## DELETE /games/{game_id}/sessions/{session_id}/members/me -- Leave a session
+## Ends the caller's participation. The host's leave closes the session for every member.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: session_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to null: the operation answers without a body.
+func delete_games_game_id_sessions_session_id_members_me(game_id: int, session_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/games/{game_id}/sessions/{session_id}/members/me", [["game_id", game_id], ["session_id", session_id]], []), null, "")
+
+
+## DELETE /games/{game_id}/sessions/{session_id}/members/{user_id} -- Kick a member
+## The host ends a guest's participation. The guest cannot rejoin this session.
+## Tags: sessions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: session_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to null: the operation answers without a body.
+func delete_games_game_id_sessions_session_id_members_user_id(game_id: int, session_id: String, user_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/games/{game_id}/sessions/{session_id}/members/{user_id}", [["game_id", game_id], ["session_id", session_id], ["user_id", user_id]], []), null, "")
+
+
+## POST /hooks/kid -- k-ID webhook receiver
+## Receives signed event callbacks from k-ID. Not part of the public API surface.
+## Tags: webhooks.
+## Error codes (open: an unlisted code is still possible): 401 Invalid or missing signature: unauthorized. 500 A database write or cache invalidation failed; retry expected: internal_error. 503 Webhook receiver not configured: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_hooks_kid() -> Variant:
+	return await _request.call("POST", _build_path("/hooks/kid", [], []), null, "")
+
+
+## POST /hooks/{name} -- Submit webhook form
+## Accepts form submissions and stores them in the database
+## Tags: webhooks.
+## Error codes (open: an unlisted code is still possible): 400 player-beta and early-developer need an email: bad_request, failed_to_decode_json, invalid_form_request, unsupported_content_type, hook_name_required, email_required. 404 Unknown hook: resource_not_found. 409 already_on_waitlist: the email already joined this hook's waitlist: already_on_waitlist. 500 Internal Server Error: internal_error.
+## Resolves to the decoded WebhookResponse body.
+func post_hooks_name(name: String) -> Variant:
+	return await _request.call("POST", _build_path("/hooks/{name}", [["name", name]], []), null, "")
+
+
+## POST /integrations/rewards/claims -- Grant a subscriber reward from a game server
+## Records the game server's grant of one reward to a player against the player's current paid subscription period, as server_confirmed by the presented integration key. The rules are those of POST /users/me/rewards/claims. To confirm a claim the player's client already made, use the confirm route instead: a second claim of the same reward is reward_already_claimed.
+## Tags: integrations, rewards.
+## Error codes (open: an unlisted code is still possible): 400 A malformed claim, an unknown integrationId, or a rewardRef that is not an active reward of the integration: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 reward_not_eligible: forbidden. 409 reward_already_claimed or reward_claim_conflict: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RewardClaimResponse body.
+func post_integrations_rewards_claims(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/integrations/rewards/claims", [], []), body, "application/json")
+
+
+## POST /integrations/rewards/claims/{claim_id}/confirm -- Confirm a player's reward claim from a game server
+## Upgrades a client_reported claim of the key's own integration to server_confirmed. Confirming twice returns the confirmed claim. A claim of another integration is reported as not found.
+## Tags: integrations, rewards.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RewardClaimResponse body.
+func post_integrations_rewards_claims_claim_id_confirm(claim_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/integrations/rewards/claims/{claim_id}/confirm", [["claim_id", claim_id]], []), null, "")
+
+
+## GET /invites/{code} -- Get invite
+## Returns the details for an invite so the frontend can preview it before the user accepts.
+## Tags: invites.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded InviteResponse body.
+func get_invites_code(code: String) -> Variant:
+	return await _request.call("GET", _build_path("/invites/{code}", [["code", code]], []), null, "")
+
+
+## POST /invites/{code} -- Accept invite
+## Accepts an invite and joins the user to the related studio or community
+## Tags: invites.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_invite_code, dev_eula_required. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_invites_code(code: String) -> Variant:
+	return await _request.call("POST", _build_path("/invites/{code}", [["code", code]], []), null, "")
+
+
+## DELETE /invites/{code} -- Delete invite
+## Deletes an invite if it was created by the requesting user or the requesting user has the correct permissions
+## Tags: invites.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_invites_code(code: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/invites/{code}", [["code", code]], []), null, "")
+
+
+## POST /legal/accept -- Accept a legal document
+## Records the caller's agreement to the current version of a document. Accepting a version that is no longer current is refused rather than recorded.
+## Tags: legal.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 409 Conflict: legal_version_stale. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_legal_accept(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/legal/accept", [], []), body, "application/json")
+
+
+## GET /legal/{type} -- Get the current legal document
+## Returns the current published document of a type, or 204 when none is published. Public: the signup page reads this before an account exists.
+## Tags: legal.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error.
+## Resolves to the decoded DocumentResponse body.
+func get_legal_type(type: String) -> Variant:
+	return await _request.call("GET", _build_path("/legal/{type}", [["type", type]], []), null, "")
+
+
+## GET /legal/{type}/pdf -- Permalink to the current legal document
+## Redirects to the current published PDF, or 204 when none is published. The CDN URL is version-scoped, so this is the only link that stays valid across a version bump -- it is what the marketing site should point at.
+## Tags: legal.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func get_legal_type_pdf(type: String) -> Variant:
+	return await _request.call("GET", _build_path("/legal/{type}/pdf", [["type", type]], []), null, "")
+
+
+## GET /motd -- The current Message of the Day, before sign-in
+## Returns the active platform Message of the Day for a game whose player has not linked a Haiven account yet, so the game can show it next to its sign-in prompt. Needs no token: `integration_id` is the game's public launch integration id, the same one the game login handoff uses, and an unknown one is refused with 400. Answers 204 when no message is active. A signed-in SDK connection receives the same message as the `motd` WebSocket event instead.
+## Tags: motd.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Motd body.
+func get_motd(integration_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/motd", [], [["integration_id", integration_id]]), null, "")
+
+
+## GET /notifications -- OnLoad notifications for the current user
+## Returns the full notification list and the unread subset for the authenticated user. Intended to be called by clients on connect/boot to seed local state before subscribing for live updates over the websocket.
+## Tags: notifications.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded OnLoadResponse body.
+func get_notifications() -> Variant:
+	return await _request.call("GET", _build_path("/notifications", [], []), null, "")
+
+
+## GET /notifications/unread -- List unread notifications for the current user
+## Tags: notifications.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Notification[] body.
+func get_notifications_unread() -> Variant:
+	return await _request.call("GET", _build_path("/notifications/unread", [], []), null, "")
+
+
+## GET /permissions/definitions -- List available permission definitions for a scope
+## Returns the definitions of permissions that can be assigned to a scope
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized.
+## Resolves to the decoded Definition[] body.
+func get_permissions_definitions(scope: String) -> Variant:
+	return await _request.call("GET", _build_path("/permissions/definitions", [], [["scope", scope]]), null, "")
+
+
+## GET /permissions/{resource_id}/roles -- List roles for a resource
+## Returns all roles defined for the given community, studio, or app
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Role[] body.
+func get_permissions_resource_id_roles(resource_id: String, scope: String) -> Variant:
+	return await _request.call("GET", _build_path("/permissions/{resource_id}/roles", [["resource_id", resource_id]], [["scope", scope]]), null, "")
+
+
+## POST /permissions/{resource_id}/roles -- Create a role for a resource
+## Creates a new role with the given permissions for a community, studio, or app
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Role body.
+func post_permissions_resource_id_roles(resource_id: String, scope: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/permissions/{resource_id}/roles", [["resource_id", resource_id]], [["scope", scope]]), body, "application/json")
+
+
+## PATCH /permissions/{resource_id}/roles/{role_id} -- Update a role
+## Updates the name and/or permissions of an existing role.
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Role body.
+func patch_permissions_resource_id_roles_role_id(resource_id: String, role_id: String, scope: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/permissions/{resource_id}/roles/{role_id}", [["resource_id", resource_id], ["role_id", role_id]], [["scope", scope]]), body, "application/json")
+
+
+## DELETE /permissions/{resource_id}/roles/{role_id} -- Delete a role
+## Deletes a role from the given community, studio, or app
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_permissions_resource_id_roles_role_id(resource_id: String, role_id: String, scope: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/permissions/{resource_id}/roles/{role_id}", [["resource_id", resource_id], ["role_id", role_id]], [["scope", scope]]), null, "")
+
+
+## POST /permissions/{resource_id}/roles/{role_id}/members/{user_id} -- Assign a role to a member
+## Assigns an existing role to a member of the given community, studio, or app scope.
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_permissions_resource_id_roles_role_id_members_user_id(resource_id: String, role_id: String, user_id: String, scope: String) -> Variant:
+	return await _request.call("POST", _build_path("/permissions/{resource_id}/roles/{role_id}/members/{user_id}", [["resource_id", resource_id], ["role_id", role_id], ["user_id", user_id]], [["scope", scope]]), null, "")
+
+
+## DELETE /permissions/{resource_id}/roles/{role_id}/members/{user_id} -- Revoke a role from a member
+## Removes a role from a member of the given community, studio, or app scope.
+## Tags: permissions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_permissions_resource_id_roles_role_id_members_user_id(resource_id: String, role_id: String, user_id: String, scope: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/permissions/{resource_id}/roles/{role_id}/members/{user_id}", [["resource_id", resource_id], ["role_id", role_id], ["user_id", user_id]], [["scope", scope]]), null, "")
+
+
+## GET /public/studios/{slug} -- Gets Public studio profile
+## Returns a publice studio profile using the provided studio slug
+## Tags: public.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded StudioProfileResponse body.
+func get_public_studios_slug(slug: String) -> Variant:
+	return await _request.call("GET", _build_path("/public/studios/{slug}", [["slug", slug]], []), null, "")
+
+
+## GET /public/users/{username} -- Gets public user profile
+## Returns a public user profile using the provided username. Authentication is optional: an anonymous caller sees profiles set to public, and a signed-in caller also sees the profiles of friends who allow it, along with the user's presence. A profile the caller may not see answers 200 with identity fields only.
+## Tags: public.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: username_required. 401 Unauthorized: unauthorized. 404 Not Found: user_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded PublicUserProfileResponse body.
+func get_public_users_username(username: String) -> Variant:
+	return await _request.call("GET", _build_path("/public/users/{username}", [["username", username]], []), null, "")
+
+
+## POST /sdk/analytics/events -- Ingest SDK analytics events
+## Stores a batch of SDK analytics events. Every current valid event is stored exactly once, keyed by its eventId, so a batch can be retried after any failure. Invalid events are refused one by one and listed in rejected; the rest are still stored. A 400 means the whole batch can never succeed: an empty or oversized batch, an unknown integrationId, or an unsupported context value. A bearer token is optional. When present it must be valid, and it attributes the events to its account; the body never names a player. A game credential is accepted for its own integrationId only; another one answers 403 forbidden.
+## Tags: analytics.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IngestAnalyticsResponse body.
+func post_sdk_analytics_events(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/sdk/analytics/events", [], []), body, "application/json")
+
+
+## POST /sdk/telemetry/errors -- Report an SDK error
+## Stores one bounded, retry-safe SDK error report. Stack traces and arbitrary metadata are not accepted. Message and annotated context are optional and should never contain secrets. Annotations identify their provenance as user or agent. A bearer token is optional; when present it must be valid and attributes the report to its account. A game credential is accepted for its own runtime.integrationId only; another one answers 403 forbidden.
+## Tags: telemetry.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ReportTelemetryErrorResponse body.
+func post_sdk_telemetry_errors(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/sdk/telemetry/errors", [], []), body, "application/json")
+
+
+## GET /search -- Protected Search
+## Used to search all publicly accessible and private objects. This is designed to be fast and return quickly as a result it will always return a 200. The client should inspect the response body to determine a success state.
+## Tags: search.
+## Resolves to the decoded SearchMatchResponse body.
+func get_search(query: String, mode: String, types: String, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/search", [], [["query", query], ["mode", mode], ["types", types], ["limit", limit]]), null, "")
+
+
+## GET /store -- The store front
+## Everything the store page shows in one call: the featured hero and the shelves under it. Public.
+## Tags: store.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded StoreFront body.
+func get_store() -> Variant:
+	return await _request.call("GET", _build_path("/store", [], []), null, "")
+
+
+## GET /store/search -- Store Search
+## Used to search all publicly accessible objects. This is designed to be fast and return quickly as a result it will always return a 200. The client should inspect the response body to determine a success state.
+## Tags: search.
+## Resolves to the decoded SearchMatchResponse body.
+func get_store_search(query: String, mode: String, types: String, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/store/search", [], [["query", query], ["mode", mode], ["types", types], ["limit", limit]]), null, "")
+
+
+## GET /studios -- List studios for developer
+## Returns an array of all studios the developer is a member of
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded DeveloperStudioResponse[] body.
+func get_studios() -> Variant:
+	return await _request.call("GET", _build_path("/studios", [], []), null, "")
+
+
+## POST /studios -- Creates new studio
+## This will create a new studio with the provided details and add the creating user as a studio member
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json, dev_eula_required. 401 Unauthorized: unauthorized. 409 Conflict: studio_name_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateStudioRow body.
+func post_studios(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios", [], []), body, "application/json")
+
+
+## GET /studios/apps/steam/import -- Get Steam data for Haiven app
+## Get steam data by steam id parsed for Haiven use
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 404 Steam has no app with this id: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AppImport body.
+func get_studios_apps_steam_import(steam_id: int) -> Variant:
+	return await _request.call("GET", _build_path("/studios/apps/steam/import", [], [["steamID", steam_id]]), null, "")
+
+
+## GET /studios/{studio_id} -- Get studio
+## Returns the studio if the developer is a member
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded StudioResponse body.
+func get_studios_studio_id(studio_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}", [["studio_id", studio_id]], []), null, "")
+
+
+## PATCH /studios/{studio_id} -- Update existing studio
+## Updates studio information
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UpdateStudioRow body.
+func patch_studios_studio_id(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps -- List all apps for studio
+## Returns every app owned by the studio. sdkEnabled is derived from whether the app has at least one SDK integration.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ListAppsByStudioRow[] body.
+func get_studios_studio_id_apps(studio_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps", [["studio_id", studio_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps -- Creates new app for the current studio
+## This will create a new app with the provided details
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded App body.
+func post_studios_studio_id_apps(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id} -- Studios app by ID
+## Returns an app by ID that the studio owns
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded App body.
+func get_studios_studio_id_apps_app_id(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## PATCH /studios/{studio_id}/apps/{app_id} -- Update existing app
+## Updates app information. With `autoPublish`, an approved app goes live on its `releaseDate` (on approval, if that has passed); without a release date it waits to be published by hand.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UpdateAppRow body.
+func patch_studios_studio_id_apps_app_id(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}/apps/{app_id}", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/builds -- Get the list of builds for an app
+## This will return all builds for an app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request. 401 Unauthorized. 403 Forbidden. 500 Internal Server Error.
+## Resolves to the decoded Build[] body.
+func get_studios_studio_id_apps_app_id_builds(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/builds", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/builds -- Creates new builds for an app
+## This will only create a new build and will not create any build platforms
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded integer body.
+func post_studios_studio_id_apps_app_id_builds(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/builds", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/apps/{app_id}/builds -- Deletes builds for an app
+## This will delete the builds provided and their child build platforms
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_apps_app_id_builds(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/apps/{app_id}/builds", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/builds/{build_id} -- Get a build and its platforms
+## Returns an apps build and its build platforms based on the app id and build id
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded GetBuildPlatformsByIDResponse body.
+func get_studios_studio_id_apps_app_id_builds_build_id(studio_id: String, app_id: String, build_id: String, platform_code: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/builds/{build_id}", [["studio_id", studio_id], ["app_id", app_id], ["build_id", build_id]], [["platformCode", platform_code]]), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/builds/{build_id}/platforms -- Create build platforms for a build
+## This will create build platforms for the given app id and build id
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateBuildPlatformResponse[] body.
+func post_studios_studio_id_apps_app_id_builds_build_id_platforms(studio_id: String, app_id: String, build_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/builds/{build_id}/platforms", [["studio_id", studio_id], ["app_id", app_id], ["build_id", build_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/external-links -- Get apps external links
+## Returns external links for the Studios app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ListExternalLinks[] body.
+func get_studios_studio_id_apps_app_id_external_links(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/external-links", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/external-links -- Creates new app external links
+## This will create new external links for the Studios app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateExternalLinkRow[] body.
+func post_studios_studio_id_apps_app_id_external_links(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/external-links", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## PATCH /studios/{studio_id}/apps/{app_id}/external-links -- Updates new apps external links
+## This will update existing external links for the Studios app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UpdateExternalLinkRow[] body.
+func patch_studios_studio_id_apps_app_id_external_links(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}/apps/{app_id}/external-links", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/apps/{app_id}/external-links -- Deletes new apps external links
+## This will delete existing external links for the Studios app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_apps_app_id_external_links(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/apps/{app_id}/external-links", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/header -- Studio app header
+## Returns the apps header for the studio dashboard
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded StudioAppHeader body.
+func get_studios_studio_id_apps_app_id_header(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/header", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/integrations -- List an app's launch integrations
+## Lists the launch integrations registered to the studio's app, by environment. The caller needs app.view_sdk.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IntegrationsResponse body.
+func get_studios_studio_id_apps_app_id_integrations(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/integrations", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/integrations -- Register an app's launch integration
+## Registers a launch integration under the authorized app in the URL. The caller needs app.manage_integrations; appId is deliberately absent from the body.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 409 Conflict: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IntegrationResponse body.
+func post_studios_studio_id_apps_app_id_integrations(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/integrations", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/events -- List an integration's recent SDK events
+## Lists the launch integration's SDK analytics events within the 90-day retention, newest first by when they happened. Pass a page's nextAfterEventId as afterEventId for the next page. No Haiven user id is returned. The caller needs app.view_sdk.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded EventsResponse body.
+func get_studios_studio_id_apps_app_id_integrations_integration_id_events(studio_id: String, app_id: String, integration_id: String, after_event_id: Variant = null, type: Variant = null, limit: Variant = null) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/events", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], [["afterEventId", after_event_id], ["type", type], ["limit", limit]]), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/health -- Get an integration's health
+## Reports, per platform, SDK and SDK version seen in the retained events, when Haiven last heard from it, its events and sessions in the last 24 hours and its latest sdk.health report, and when each active game server key last authenticated. The caller needs app.view_sdk.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IntegrationHealthResponse body.
+func get_studios_studio_id_apps_app_id_integrations_integration_id_health(studio_id: String, app_id: String, integration_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/health", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), null, "")
+
+
+## PUT /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/redirect-uris -- Set an integration's login redirect URIs
+## Replaces the redirect URIs the game login handoff may complete to for a launch integration registered to the studio's app, so its players can sign in without operator config. The caller needs app.manage_integrations. An integration the operator configures for the handoff is refused with 409.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 409 The operator configures the integration's login: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IntegrationResponse body.
+func put_studios_studio_id_apps_app_id_integrations_integration_id_redirect_uris(studio_id: String, app_id: String, integration_id: String, body: Variant) -> Variant:
+	return await _request.call("PUT", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/redirect-uris", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards -- List an integration's rewards
+## Lists the subscriber rewards the studio defined for the launch integration, by rewardRef, inactive ones included. Once an integration has any reward, a reward claim for it must name an active one. The caller needs app.view_sdk.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RewardsResponse body.
+func get_studios_studio_id_apps_app_id_integrations_integration_id_rewards(studio_id: String, app_id: String, integration_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards -- Define a reward
+## Defines a subscriber reward of the launch integration that players can claim with its rewardRef. Once an integration has any reward, a reward claim naming any other rewardRef is refused. A rewardRef is defined once per integration. The caller needs app.manage_rewards.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 409 The rewardRef is already defined for the integration: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RewardResponse body.
+func post_studios_studio_id_apps_app_id_integrations_integration_id_rewards(studio_id: String, app_id: String, integration_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), body, "application/json")
+
+
+## PATCH /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards/{reward_id} -- Change a reward
+## Renames, deactivates or reactivates one of the launch integration's rewards. An inactive reward refuses new claims; the claims already recorded stand. The rewardRef cannot change. The caller needs app.manage_rewards.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app, or the reward is not its reward: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RewardResponse body.
+func patch_studios_studio_id_apps_app_id_integrations_integration_id_rewards_reward_id(studio_id: String, app_id: String, integration_id: String, reward_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards/{reward_id}", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id], ["reward_id", reward_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards/{reward_id} -- Delete a reward
+## Removes one of the launch integration's rewards that no player has claimed. A claimed reward stays defined so its claims keep naming it; deactivate it instead. Deleting an integration's last reward lets its claims name any rewardRef again. The caller needs app.manage_rewards.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app, or the reward is not its reward: resource_not_found. 409 A player has claimed the reward: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_apps_app_id_integrations_integration_id_rewards_reward_id(studio_id: String, app_id: String, integration_id: String, reward_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/rewards/{reward_id}", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id], ["reward_id", reward_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/server-keys -- List an integration's game server keys
+## Lists every game server key of a launch integration registered to the studio's app, revoked ones included, without secrets. The caller needs app.view_sdk.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ServerKeysResponse body.
+func get_studios_studio_id_apps_app_id_integrations_integration_id_server_keys(studio_id: String, app_id: String, integration_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/server-keys", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/server-keys -- Issue a game server key
+## Issues a key the game's server uses to act for the launch integration, for example to confirm a player's reward claim. The key is returned once and stored only as a hash. The caller needs app.manage_server_keys.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IssuedServerKeyResponse body.
+func post_studios_studio_id_apps_app_id_integrations_integration_id_server_keys(studio_id: String, app_id: String, integration_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/server-keys", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/server-keys/{key_id} -- Revoke a game server key
+## Revokes one of the launch integration's keys at once. A key of another integration, or one already revoked, is not found. The caller needs app.manage_server_keys.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app, or the key is not its active key: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_apps_app_id_integrations_integration_id_server_keys_key_id(studio_id: String, app_id: String, integration_id: String, key_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/server-keys/{key_id}", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id], ["key_id", key_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/setup -- Get an integration's SDK setup
+## Returns what a developer configures the SDK and the game server with: the launch integration id, its environment, the API base URL for that environment, the server key header, and the login handoff config Haiven holds for it. The caller needs app.view_sdk.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 The integration is not registered to the app: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded IntegrationSetupResponse body.
+func get_studios_studio_id_apps_app_id_integrations_integration_id_setup(studio_id: String, app_id: String, integration_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/integrations/{integration_id}/setup", [["studio_id", studio_id], ["app_id", app_id], ["integration_id", integration_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/media -- Get media for app
+## Returns all the app media for the given app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AppMedia body.
+func get_studios_studio_id_apps_app_id_media(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/media", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/media -- Creates new app media
+## This will create new app media for the Studios app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateAppMedia body.
+func post_studios_studio_id_apps_app_id_media(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/media", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/apps/{app_id}/media -- Delete media for app
+## Deletes the app media for the given app
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_apps_app_id_media(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/apps/{app_id}/media", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/media/complete -- Mark media items complete
+## Lets the api know that a media item has been successfully uploaded to S3
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_studios_studio_id_apps_app_id_media_complete(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/media/complete", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## PATCH /studios/{studio_id}/apps/{app_id}/media/order -- Update media item order
+## Allows for the updating of media items display order
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func patch_studios_studio_id_apps_app_id_media_order(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}/apps/{app_id}/media/order", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## PUT /studios/{studio_id}/apps/{app_id}/official-community -- Bind an app's official community
+## Makes a chat community the app's official community: the one players join when they sign in from the game. The caller needs app.edit, and the community must be owned by the caller or by the studio. An app's official community is set once: sending the community it already has answers 200 and changes nothing, and a different one is a 409. A community is official for one app at most.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 The caller may not edit the app, or the community is not the caller's or the studio's: forbidden. 404 The app is not the studio's, or the community does not exist: resource_not_found. 409 The app has a different official community, or the community is another app's: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded App body.
+func put_studios_studio_id_apps_app_id_official_community(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("PUT", _build_path("/studios/{studio_id}/apps/{app_id}/official-community", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/requirements -- Get system requirements for an app
+## Returns all system requirements for each the requested app id
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded PlatformRequirement[] body.
+func get_studios_studio_id_apps_app_id_requirements(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/requirements", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/requirements -- Creates new system requirements for an app
+## This creates new system requirements for each item in the request array
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded PlatformRequirement[] body.
+func post_studios_studio_id_apps_app_id_requirements(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/requirements", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## PATCH /studios/{studio_id}/apps/{app_id}/requirements -- Updates system requirements for an app
+## This updates system requirements for each item in the request array
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded PlatformRequirement[] body.
+func patch_studios_studio_id_apps_app_id_requirements(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}/apps/{app_id}/requirements", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/review -- An app's review status
+## Where the app is in Haiven review, whether a reviewer has picked it up or asked for a review key, and the reason for the last rejection.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AppReviewStatus body.
+func get_studios_studio_id_apps_app_id_review(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/review", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/review-key -- Whether an app has a review key on file
+## Reports whether a redemption key has been filed, and the storefront it redeems at. The key itself is never returned here.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AppReviewKeyStatus body.
+func get_studios_studio_id_apps_app_id_review_key(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/review-key", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## PUT /studios/{studio_id}/apps/{app_id}/review-key -- Set an app's review redemption key
+## Files the redemption key and storefront a reviewer uses to obtain the submitted game, replacing any key already on file
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func put_studios_studio_id_apps_app_id_review_key(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("PUT", _build_path("/studios/{studio_id}/apps/{app_id}/review-key", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/review/archive -- Archive a published app
+## Retires a published app. It drops out of search but keeps its store page, so players who have it can still find it.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 the app is not this studio's: resource_not_found. 409 the app is not published: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_studios_studio_id_apps_app_id_review_archive(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/review/archive", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/review/publish -- Publish an approved app
+## Takes an approved app live on Haiven now, ahead of any release date set to auto-publish.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 the app is not this studio's: resource_not_found. 409 the app is not approved: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_studios_studio_id_apps_app_id_review_publish(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/review/publish", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/review/submit -- Submit an app for review
+## Sends a draft app, or a rejected one the studio has changed, to Haiven review. It becomes `requires_review` until a reviewer picks it up, and can be withdrawn until then.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 the app is not this studio's: resource_not_found. 409 the app is not a draft or rejected app: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_studios_studio_id_apps_app_id_review_submit(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/review/submit", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/review/withdraw -- Withdraw an app from review
+## Takes a submitted app back to `draft` before a reviewer picks it up. Once it is `in_review` it cannot be withdrawn (`app_in_review`) until a reviewer decides.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 the app is not this studio's: resource_not_found. 409 the app is in review, or was not submitted: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_studios_studio_id_apps_app_id_review_withdraw(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/review/withdraw", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/apps/{app_id}/tags -- Get an app's tags
+## The tags on the studio's app, for the studio to see and edit.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 the app is not this studio's: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Tag[] body.
+func get_studios_studio_id_apps_app_id_tags(studio_id: String, app_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/apps/{app_id}/tags", [["studio_id", studio_id], ["app_id", app_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/apps/{app_id}/tags -- Add tags to an app
+## Adds an array of tags to the given app id
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_studios_studio_id_apps_app_id_tags(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/apps/{app_id}/tags", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/apps/{app_id}/tags -- Remove tags from an app
+## Removes an array of tags from the given app id
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_apps_app_id_tags(studio_id: String, app_id: String, body: Variant) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/apps/{app_id}/tags", [["studio_id", studio_id], ["app_id", app_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/external-links -- Get studios external links
+## Returns external links for the studio
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ListExternalLinks[] body.
+func get_studios_studio_id_external_links(studio_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/external-links", [["studio_id", studio_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/external-links -- Creates studio external links
+## This will create new external links for the studio
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateExternalLinkRow[] body.
+func post_studios_studio_id_external_links(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/external-links", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## PATCH /studios/{studio_id}/external-links -- Updates studios external links
+## This will update existing external links for the studio
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UpdateExternalLinkRow[] body.
+func patch_studios_studio_id_external_links(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/studios/{studio_id}/external-links", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## DELETE /studios/{studio_id}/external-links -- Deletes studios external links
+## This will delete existing external links for the studio
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_external_links(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/external-links", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## POST /studios/{studio_id}/images -- Create studio image
+## Creates a studio profile or background image and returns a presigned upload URL
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, studio_id_required, image_fields_required, invalid_image_type, unsupported_content_type. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateImageItemResponse body.
+func post_studios_studio_id_images(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/images", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## POST /studios/{studio_id}/images/complete -- Mark studio image complete
+## Marks a studio image as successfully uploaded to S3
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Scanning body.
+func post_studios_studio_id_images_complete(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/images/complete", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/invites -- List studio invites
+## Returns a list of all invites for the following studio **NOTE:** if query param mine != true the requesting user must have permissions to see all invites
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded InviteResponse[] body.
+func get_studios_studio_id_invites(studio_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/invites", [["studio_id", studio_id]], []), null, "")
+
+
+## POST /studios/{studio_id}/invites -- Creates new studio invite
+## This will create a new studio invite with the provided details
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded InviteResponse body.
+func post_studios_studio_id_invites(studio_id: String, body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/studios/{studio_id}/invites", [["studio_id", studio_id]], []), body, "application/json")
+
+
+## GET /studios/{studio_id}/members -- Get studio members
+## Returns an array of members for the studio
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ListStudioMemberResponse[] body.
+func get_studios_studio_id_members(studio_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/members", [["studio_id", studio_id]], []), null, "")
+
+
+## DELETE /studios/{studio_id}/members/{member_id} -- Remove community member
+## Removes a current member from the community
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_studios_studio_id_members_member_id(studio_id: String, member_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/studios/{studio_id}/members/{member_id}", [["studio_id", studio_id], ["member_id", member_id]], []), null, "")
+
+
+## GET /studios/{studio_id}/referrals -- Get studio referral
+## Returns the current studios referral code. If the studio doesn't already have a referral code one will be created and returned.
+## Tags: studio.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ReferralResponse body.
+func get_studios_studio_id_referrals(studio_id: String) -> Variant:
+	return await _request.call("GET", _build_path("/studios/{studio_id}/referrals", [["studio_id", studio_id]], []), null, "")
+
+
+## GET /subscriptions/me -- Get my subscription
+## returns the caller's subscription status, access end, the purchaseRevision a new purchase must quote, and any open purchase
+## Tags: subscriptions.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded SubscriptionState body.
+func get_subscriptions_me() -> Variant:
+	return await _request.call("GET", _build_path("/subscriptions/me", [], []), null, "")
+
+
+## POST /subscriptions/me/purchases -- Reserve a subscription period for Credits
+## reserves the next period and authorizes its funding; the client then buys fundingOfferCode in payments if it lacks the Credits, and pays before acceptBefore
+## Tags: subscriptions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json. 401 Unauthorized: unauthorized. 409 Conflict: stale_purchase_revision, purchase_in_progress. 500 Internal Server Error: internal_error. 503 Service Unavailable: purchase_unavailable.
+## Resolves to the decoded Purchase body.
+func post_subscriptions_me_purchases(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/subscriptions/me/purchases", [], []), body, "application/json")
+
+
+## POST /subscriptions/me/purchases/{purchase_intent_id}/pay -- Pay a reserved subscription period with Credits
+## sends the one spend of the reservation to payments and returns at once; the outcome arrives from payments. A repeated call sends nothing and returns the current state. After acceptBefore the reservation is cancelled and 409 accept_before_expired is returned.
+## Tags: subscriptions.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 409 Conflict: accept_before_expired. 500 Internal Server Error: internal_error. 503 Service Unavailable: purchase_unavailable.
+## Resolves to the decoded Purchase body.
+func post_subscriptions_me_purchases_purchase_intent_id_pay(purchase_intent_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/subscriptions/me/purchases/{purchase_intent_id}/pay", [["purchase_intent_id", purchase_intent_id]], []), null, "")
+
+
+## GET /username-taken -- Username Taken
+## Used during signup to check if a user name is taken, and at sign-in to check whether the username or email entered belongs to an account. An email matches only an account with a username and password sign-in. Where logins restore a missing account record, a password user left in Cognito without one also matches, so the player can sign in and have it restored.
+## Tags: search.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error. 503 Service Unavailable: internal_error.
+## Resolves to the decoded SearchMatchResponse body.
+func get_username_taken(query: String) -> Variant:
+	return await _request.call("GET", _build_path("/username-taken", [], [["query", query]]), null, "")
+
+
+## GET /users/me -- Get current users session
+## returns the current users session for the frontend
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded CurrentUserSessionResponse body.
+func get_users_me() -> Variant:
+	return await _request.call("GET", _build_path("/users/me", [], []), null, "")
+
+
+## PATCH /users/me -- Updates a user
+## Updates only the user's display name. The email cannot be changed here, and an email field is ignored.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded CurrentUserSessionResponse body.
+func patch_users_me(body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/users/me", [], []), body, "application/json")
+
+
+## GET /users/me/age-gate -- Get the caller's age-gate status
+## Returns Haiven's stored age classification plus, when a k-id session or pending consent challenge is linked, live detail fetched from k-id (session-level consent state, challenge url/OTP). Never includes permission lists or k-id identifiers.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AgeGateStatus body.
+func get_users_me_age_gate() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/age-gate", [], []), null, "")
+
+
+## POST /users/me/age-gate/challenge/generate-otp -- Generate a fresh OTP for the caller's pending consent challenge
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 404 No pending challenge: resource_not_found. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded GenerateOTPResponse body.
+func post_users_me_age_gate_challenge_generate_otp() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/challenge/generate-otp", [], []), null, "")
+
+
+## POST /users/me/age-gate/challenge/retry -- Request a new parental consent after a failed one
+## For an account a failed parental consent locked: once the wait shown as consentRetryAt in GET /users/me/age-gate is over, starts a new consent challenge from the stored date of birth and jurisdiction and lifts the lock. The account is re-enabled when the new consent passes.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 409 Nothing to retry, the wait is not over, or no stored jurisdiction: age_gate_nothing_to_retry, age_gate_retry_not_yet, age_gate_jurisdiction_unknown. 503 k-ID unavailable or not configured: age_assurance_unavailable.
+## Resolves to the decoded AgeCheckResponse body.
+func post_users_me_age_gate_challenge_retry() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/challenge/retry", [], []), null, "")
+
+
+## POST /users/me/age-gate/challenge/send-email -- (Re)send the caller's pending consent challenge by email
+## Sends or resends the caller's own pending VPC consent challenge to a parent/guardian email. Resolves the challenge server-side from the caller's session -- a request cannot name someone else's challenge.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 No pending challenge: resource_not_found. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_age_gate_challenge_send_email(body: Variant = null) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/challenge/send-email", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/check -- Run the age gate for an existing account
+## For an account with no age band yet (created before age assurance, or reset by k-ID's Session.Delete): runs the same k-ID age gate signup runs and stores the result the same way, including a parental-consent challenge for a Digital Minor. A date of birth or jurisdiction already stored is reused and may be omitted; a different one is refused.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, date_of_birth_required, date_of_birth_invalid, jurisdiction_required, jurisdiction_invalid. 401 Unauthorized: unauthorized. 409 Already classified, or conflicts with stored details: age_gate_already_classified, age_gate_details_on_file. 503 k-ID unavailable or not configured: age_assurance_unavailable.
+## Resolves to the decoded AgeCheckResponse body.
+func post_users_me_age_gate_check(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/check", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/parent-link/cancel -- Cancel the caller's pending Verified Parent Linking invite
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 404 No pending invite: resource_not_found. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded ParentLinkCancelResponse body.
+func post_users_me_age_gate_parent_link_cancel() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/parent-link/cancel", [], []), null, "")
+
+
+## POST /users/me/age-gate/parent-link/invite -- Send a Verified Parent Linking (VPL) invite
+## Non-blocking, opt-in: the caller keeps full access while this resolves. Distinct from the VPC consent gate. Requires an active session and that k-id has enabled VPL for this organization.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 No active session: resource_not_found. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded ParentLinkInviteResponse body.
+func post_users_me_age_gate_parent_link_invite(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/parent-link/invite", [], []), body, "application/json")
+
+
+## GET /users/me/age-gate/parent-link/status -- Get the status of the caller's most recent Verified Parent Linking invite
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 404 No tracked invite: resource_not_found. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded ParentLinkStatus body.
+func get_users_me_age_gate_parent_link_status() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/age-gate/parent-link/status", [], []), null, "")
+
+
+## POST /users/me/age-gate/verification/access-age-verification -- Perform access age verification
+## Runs k-ID's general-purpose verification waterfall for the caller's own account. jurisdiction is always the account's own stored country_code, never accepted from the request.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_access_age_verification(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/access-age-verification", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/age-appeal -- Perform an age appeal
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_age_appeal(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/age-appeal", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/age-key -- Perform AgeKey verification
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_age_key(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/age-key", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/connect-id -- Perform ConnectID verification
+## Only available for Australia -- enforced by k-ID, not by this endpoint.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_connect_id(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/connect-id", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/credit-card -- Perform credit card verification
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_credit_card(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/credit-card", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/custom -- Perform a custom (k-ID-dashboard-configured) age verification scenario
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Missing scenarioId: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_custom(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/custom", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/facial-age-estimation -- Perform facial age estimation
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_facial_age_estimation(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/facial-age-estimation", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/id -- Perform ID document verification
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_id(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/id", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/jurisdiction-appeal -- Appeal the account's stored jurisdiction
+## claimedJurisdiction is the one field on this whole surface that legitimately comes from the caller rather than the account's own stored value -- asserting a different jurisdiction is the entire point of an appeal.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Missing claimedJurisdiction: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_jurisdiction_appeal(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/jurisdiction-appeal", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/verification/trusted-adult -- Perform trusted adult verification
+## subjectEmail is required for this endpoint, unlike every sibling verification endpoint.
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 400 Missing subjectEmail: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded VerificationHandleResponse body.
+func post_users_me_age_gate_verification_trusted_adult(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/verification/trusted-adult", [], []), body, "application/json")
+
+
+## POST /users/me/age-gate/widgets/age-gate -- Generate the hosted age gate widget URL
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded WidgetURLResponse body.
+func post_users_me_age_gate_widgets_age_gate() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/widgets/age-gate", [], []), null, "")
+
+
+## POST /users/me/age-gate/widgets/direct-notices -- Generate the hosted data-notices widget URL
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded WidgetURLResponse body.
+func post_users_me_age_gate_widgets_direct_notices() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/widgets/direct-notices", [], []), null, "")
+
+
+## POST /users/me/age-gate/widgets/e2e -- Generate the hosted end-to-end (age gate + VPC) widget URL
+## Tags: age-gate.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 409 No stored jurisdiction on this account: resource_already_exists. 503 k-ID unavailable or not configured: internal_error.
+## Resolves to the decoded WidgetURLResponse body.
+func post_users_me_age_gate_widgets_e2e() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/age-gate/widgets/e2e", [], []), null, "")
+
+
+## GET /users/me/block -- List My blocked users
+## Returns a list of users the calling user has blocked
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserBlock[] body.
+func get_users_me_block() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/block", [], []), null, "")
+
+
+## POST /users/me/block/{user_id} -- Block User
+## Blocks the user for the calling user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserBlock body.
+func post_users_me_block_user_id(user_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/block/{user_id}", [["user_id", user_id]], []), null, "")
+
+
+## PUT /users/me/disable -- Disables the users account
+## This can only be done by the user for now
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func put_users_me_disable() -> Variant:
+	return await _request.call("PUT", _build_path("/users/me/disable", [], []), null, "")
+
+
+## GET /users/me/entitlements -- Get my entitlements
+## Returns the authenticated account's active item, subscription and founder entitlements from one versioned projection snapshot. The response never contains payment-provider, billing, ledger, or source-operation identifiers.
+## Tags: users, entitlements.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded AccountEntitlementsResponse body.
+func get_users_me_entitlements() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/entitlements", [], []), null, "")
+
+
+## POST /users/me/feedback -- Feedback for the current user
+## Processes feedback from the current user about the Haiven platform. **NOTE:** The total request body can be no larger than 40MB and all screenshots cannot exceed 30MB
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_feedback(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/feedback", [], []), body, "application/json")
+
+
+## GET /users/me/friends -- List My Friends
+## Returns all friends for the current user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserRelationship[] body.
+func get_users_me_friends() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/friends", [], []), null, "")
+
+
+## GET /users/me/friends/requests -- List My Friend Requests
+## Returns all friend requests targeting the current user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded FriendRequest[] body.
+func get_users_me_friends_requests() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/friends/requests", [], []), null, "")
+
+
+## GET /users/me/friends/requests/pending -- List Pending Friend Requests
+## Returns all pending friend requests the current user has sent to others
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded FriendRequest[] body.
+func get_users_me_friends_requests_pending() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/friends/requests/pending", [], []), null, "")
+
+
+## POST /users/me/friends/requests/{user_id} -- Create Friend Request
+## Creates a new friend request for the target user. If the target already has a pending request to the caller it is accepted instead, so the returned status may be `accepted` rather than `pending`. A request the target previously declined may be re-sent once an hour; refusals until then answer 429 with a Retry-After header.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 404 Not Found: resource_not_found. 409 Conflict: resource_already_exists. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserRelationship body.
+func post_users_me_friends_requests_user_id(user_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/friends/requests/{user_id}", [["user_id", user_id]], []), null, "")
+
+
+## DELETE /users/me/friends/{relationship_id} -- Remove Friend
+## Removes a users friend using the provided relationship ID. A declined request is not removable — it holds the sender's re-request cooldown — and answers 404 like any relationship that is not the caller's.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RemovedFriend body.
+func delete_users_me_friends_relationship_id(relationship_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/users/me/friends/{relationship_id}", [["relationship_id", relationship_id]], []), null, "")
+
+
+## POST /users/me/friends/{relationship_id}/requests/accept -- Accept Friend Request
+## Accepts a friend request from the calling user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserRelationship body.
+func post_users_me_friends_relationship_id_requests_accept(relationship_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/friends/{relationship_id}/requests/accept", [["relationship_id", relationship_id]], []), null, "")
+
+
+## POST /users/me/friends/{relationship_id}/requests/decline -- Decline Friend Request
+## Declines a friend request from the calling user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_friends_relationship_id_requests_decline(relationship_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/friends/{relationship_id}/requests/decline", [["relationship_id", relationship_id]], []), null, "")
+
+
+## PATCH /users/me/friends/{relationship_id}/settings -- Set Friend Settings
+## Sets a users friend settings using the provided relationship ID
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserFriendSetting body.
+func patch_users_me_friends_relationship_id_settings(relationship_id: String, body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/users/me/friends/{relationship_id}/settings", [["relationship_id", relationship_id]], []), body, "application/json")
+
+
+## GET /users/me/game-credentials -- List my connected games
+## Lists the game credentials issued to the caller in the last 30 days, newest first, at most 100, revoked and expired ones included. A game credential cannot call this route.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: internal_error.
+## Resolves to the decoded GameCredentialsResponse body.
+func get_users_me_game_credentials() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/game-credentials", [], []), null, "")
+
+
+## DELETE /users/me/game-credentials -- Disconnect a game
+## Revokes every live game credential the caller holds for one launch integration and closes the game sockets they opened. Each login handoff issues a new credential, so this is what disconnects a game.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_users_me_game_credentials(integration_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/users/me/game-credentials", [], [["integration_id", integration_id]]), null, "")
+
+
+## DELETE /users/me/game-credentials/{credential_id} -- Revoke one game credential
+## Revokes one of the caller's game credentials at once and closes the game sockets it opened. Revoking one that is already revoked or expired succeeds. The game can still get a new credential through the login handoff while the caller's web session is active.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 404 Not Found: resource_not_found. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error. 503 Service Unavailable: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_users_me_game_credentials_credential_id(credential_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/users/me/game-credentials/{credential_id}", [["credential_id", credential_id]], []), null, "")
+
+
+## POST /users/me/images -- Create user image
+## Creates a user profile or background image and returns a pre-signed upload URL
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, image_fields_required, invalid_image_type, unsupported_content_type. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded CreateImageItemResponse body.
+func post_users_me_images(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/images", [], []), body, "application/json")
+
+
+## POST /users/me/images/complete -- Mark user image complete
+## Marks a user image as successfully uploaded to S3
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded Scanning body.
+func post_users_me_images_complete(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/images/complete", [], []), body, "application/json")
+
+
+## GET /users/me/interests -- User Interests
+## Returns the requesting user's tailored-experience interests, defaulting to all false if never set
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Interests body.
+func get_users_me_interests() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/interests", [], []), null, "")
+
+
+## PATCH /users/me/interests -- Update user Interests
+## Replaces the requesting user's tailored-experience interests
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Interests body.
+func patch_users_me_interests(body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/users/me/interests", [], []), body, "application/json")
+
+
+## GET /users/me/invites -- Get User Invites
+## Returns all active invites targeted at the current user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error.
+## Resolves to the decoded InviteResponse[] body.
+func get_users_me_invites() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/invites", [], []), null, "")
+
+
+## PUT /users/me/marketing-opt-in -- Update Marketing Opt In
+## Updates the authenticated user's marketing opt-in preference.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func put_users_me_marketing_opt_in() -> Variant:
+	return await _request.call("PUT", _build_path("/users/me/marketing-opt-in", [], []), null, "")
+
+
+## POST /users/me/password -- Change current user password
+## Allows current user only to change their password. Every other session the user has is ended; the one making the request stays signed in.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: invalid_json, previous_password_required, new_password_required, passwords_match. 401 Unauthorized: unauthorized. 429 Too Many Requests: rate_limited. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_password(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/password", [], []), body, "application/json")
+
+
+## GET /users/me/presence -- Get My Presence
+## Returns the current users unmasked presence and status
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded PresenceMessage body.
+func get_users_me_presence() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/presence", [], []), null, "")
+
+
+## POST /users/me/presence/availability -- Set User Presence
+## Sets the current users presence
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Availability body.
+func post_users_me_presence_availability(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/presence/availability", [], []), body, "application/json")
+
+
+## POST /users/me/presence/availability/clear -- Clear User Presence
+## Clears the current users presence
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_presence_availability_clear() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/presence/availability/clear", [], []), null, "")
+
+
+## POST /users/me/presence/status -- Set User Status
+## Sets the current users status
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 500 Internal Server Error: internal_error.
+## Resolves to the decoded Status body.
+func post_users_me_presence_status(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/presence/status", [], []), body, "application/json")
+
+
+## POST /users/me/presence/status/clear -- Clear User Status
+## Clears the current users status
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_presence_status_clear() -> Variant:
+	return await _request.call("POST", _build_path("/users/me/presence/status/clear", [], []), null, "")
+
+
+## GET /users/me/profile -- Users Profile
+## Returns the current users profile
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserProfileResponse body.
+func get_users_me_profile() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/profile", [], []), null, "")
+
+
+## PATCH /users/me/profile -- Update users profile
+## Updates the current users profile. An absent field is left alone; an empty bio or headline clears it. Avatar frames are selected after server-side ownership validation.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, bio_too_long, headline_too_long, invalid_visibility, avatar_frame_invalid. 401 Unauthorized: unauthorized. 403 Avatar frame is not owned: avatar_frame_not_owned. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UpdateUserProfileResponse body.
+func patch_users_me_profile(body: Variant) -> Variant:
+	return await _request.call("PATCH", _build_path("/users/me/profile", [], []), body, "application/json")
+
+
+## GET /users/me/referrals -- Get user referral
+## Returns the current users referral code. If the user doesn't already have a referral code one will be created and returned.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ReferralResponse body.
+func get_users_me_referrals() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/referrals", [], []), null, "")
+
+
+## POST /users/me/report -- List My blocked users
+## Reports the user for the calling user Only the calling user can be provided as the reporter if another userID is provided the API will override it.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, report_reason_invalid, report_self_forbidden, report_limit_reached. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_report(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/report", [], []), body, "application/json")
+
+
+## POST /users/me/rewards/claims -- Claim a subscriber reward
+## Records the authenticated player's claim of one reward of one game against their current paid subscription period, as client_reported. A reward is claimed once per player, game and period. A claim has no effect on the refund of the purchase that paid for the period: a refund reverses only what that purchase granted, and a claimed reward stays with the player. Retrying with the same claimId returns the recorded claim with 200; the same claimId for a different claim is reward_claim_conflict. Once the studio has defined any reward for the integration in the Studio Dashboard, rewardRef must name one of its active rewards, or the claim is a 400; an integration without defined rewards accepts any rewardRef.
+## Tags: users, rewards.
+## Error codes (open: an unlisted code is still possible): 400 A malformed claim, an unknown integrationId, or a rewardRef that is not an active reward of the integration: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 403 reward_not_eligible: forbidden. 409 reward_already_claimed or reward_claim_conflict: resource_already_exists. 500 Internal Server Error: internal_error.
+## Resolves to the decoded RewardClaimResponse body.
+func post_users_me_rewards_claims(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/rewards/claims", [], []), body, "application/json")
+
+
+## GET /users/me/rewards/eligibility -- Get my subscriber-reward eligibility
+## Returns whether the authenticated account may receive subscriber rewards, and the statuses games may see, read from the same versioned entitlement projection as GET /users/me/entitlements. A status such as founder does not make an account eligible; statuses report it separately. statuses[].code is an open vocabulary: a client keeps working when a code it does not know appears. A game branches on eligible or basis, never on a subscription product code. The route is on the game credential route list: it takes a game credential, and a web bearer only where the deployment allows one on game routes (development and sandbox); elsewhere a web bearer answers 403 forbidden.
+## Tags: users, rewards.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 403 Forbidden: forbidden. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded RewardEligibilityResponse body.
+func get_users_me_rewards_eligibility() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/rewards/eligibility", [], []), null, "")
+
+
+## GET /users/me/sessions -- List active sessions
+## Lists the caller's active sessions, newest first, with the device and address each was opened from. Sessions opened before session tracking existed appear once they next refresh.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded ListSessionsResponse body.
+func get_users_me_sessions() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/sessions", [], []), null, "")
+
+
+## DELETE /users/me/sessions -- End all sessions
+## Ends every session the caller has, including the one making the request. The caller's refresh cookie is cleared with them.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_users_me_sessions() -> Variant:
+	return await _request.call("DELETE", _build_path("/users/me/sessions", [], []), null, "")
+
+
+## DELETE /users/me/sessions/{session_id} -- End one session
+## Ends a single session by id, revoking its refresh token. A session id that is not the caller's reports as not found. Ending the session the request was made from also clears the caller's refresh cookie.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: bad_request, failed_to_decode_json. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func delete_users_me_sessions_session_id(session_id: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/users/me/sessions/{session_id}", [["session_id", session_id]], []), null, "")
+
+
+## GET /users/me/settings -- User Settings
+## Returns the requesting users settings
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to the decoded UserSettingsData body.
+func get_users_me_settings() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/settings", [], []), null, "")
+
+
+## PATCH /users/me/settings -- Update user Settings
+## Update the current users settings NOTE: till settings are implemented fully this just returns status ok
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func patch_users_me_settings() -> Variant:
+	return await _request.call("PATCH", _build_path("/users/me/settings", [], []), null, "")
+
+
+## GET /users/me/sign-in-methods -- List the caller's sign-in methods
+## Whether the account has a username and password sign-in, and the Google and Apple identities linked to it with the email each provider gave, oldest first.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 401 Unauthorized: unauthorized. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to the decoded SignInMethodsResponse body.
+func get_users_me_sign_in_methods() -> Variant:
+	return await _request.call("GET", _build_path("/users/me/sign-in-methods", [], []), null, "")
+
+
+## POST /users/me/sign-in-methods/password -- Add a password sign-in
+## Gives an account that signs in only with SSO a username and password sign-in, under its existing Haiven username. The email is the account's own, or a different address verified first with validate-email and confirm, which then becomes the account's. An account that already has a password answers password_already_set.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: failed_to_decode_json, email_required, email_invalid, password_required, password_invalid. 401 Unauthorized: unauthorized. 403 Forbidden: email_not_verified. 409 Conflict: password_already_set, email_exists. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to null: the operation answers without a body.
+func post_users_me_sign_in_methods_password(body: Variant) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/sign-in-methods/password", [], []), body, "application/json")
+
+
+## POST /users/me/sign-in-methods/sso/{provider} -- Begin linking an SSO provider
+## Starts Cognito federation for the named provider (google or apple) to link it to the caller's account, and returns the URL to send the browser to. The response sets the federation_state cookie the callback checks, so it must be requested from the browser that follows the URL. Open the popup the flow runs in before calling this, or the browser blocks it. The callback links the identity whatever its email, sends the outcome to the account's sockets as account.identity.linked or account.identity.link.failed (with the error code, such as identity_already_linked), and redirects the popup to the completion URL with link=<provider> either way. An account that already has an identity from the provider answers provider_already_linked here.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: federation_provider_invalid. 401 Unauthorized: unauthorized. 409 Conflict: provider_already_linked. 500 Internal Server Error: internal_error. 503 Service Unavailable: federation_unavailable.
+## Resolves to the decoded StartFederatedLinkResponse body.
+func post_users_me_sign_in_methods_sso_provider(provider: String) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/sign-in-methods/sso/{provider}", [["provider", provider]], []), null, "")
+
+
+## DELETE /users/me/sign-in-methods/sso/{provider} -- Unlink an SSO provider
+## Removes the caller's Google or Apple identity. It deletes the identity's Cognito user, which ends every session signed in through it, including the caller's own if they signed in with this provider. An account without a password must keep at least one identity, so removing the last one answers last_sign_in_method; an account with no identity from the provider answers resource_not_found.
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 400 Bad Request: federation_provider_invalid. 401 Unauthorized: unauthorized. 404 Not Found: resource_not_found. 409 Conflict: last_sign_in_method. 500 Internal Server Error: internal_error. 503 Service Unavailable: auth_unavailable.
+## Resolves to null: the operation answers without a body.
+func delete_users_me_sign_in_methods_sso_provider(provider: String) -> Variant:
+	return await _request.call("DELETE", _build_path("/users/me/sign-in-methods/sso/{provider}", [["provider", provider]], []), null, "")
+
+
+## POST /users/me/unblock/{user_id} -- Unblock User
+## Unblocks the user for the calling user
+## Tags: users.
+## Error codes (open: an unlisted code is still possible): 500 Internal Server Error: internal_error.
+## Resolves to null: the operation answers without a body.
+func post_users_me_unblock_user_id(user_id: String) -> Variant:
+	return await _request.call("POST", _build_path("/users/me/unblock/{user_id}", [["user_id", user_id]], []), null, "")
+
+
+## GET /ws -- Establish WebSocket Connection
+## Upgrade the connection to a WebSocket hub. Clients should connect using `wss://haiven.gg/v0/ws` and a documented surface-major subprotocol.
+## Tags: websocket.
+## Resolves to null: the operation answers without a body.
+func get_ws() -> Variant:
+	return await _request.call("GET", _build_path("/ws", [], []), null, "")

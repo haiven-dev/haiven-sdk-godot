@@ -18,7 +18,7 @@ var _entropy: Array[PackedByteArray] = []
 var _opened: Array[String] = []
 var _requests: Array[Dictionary] = []
 var _exchange_payload := {
-	"access_token": "handoff-access",
+	"access_token": "header.eyJleHAiOjF9.signature",
 	"token_type": "Bearer",
 	"expires_in": 300,
 }
@@ -67,11 +67,12 @@ func _run() -> void:
 	var completed: Dictionary = await handoff.complete(_callback(start["state"]))
 	check("a trusted callback completes", completed.get("ok") == true)
 	var credential: Dictionary = completed.get("credential", {})
-	check("the access token is returned", credential.get("access_token") == "handoff-access")
+	check("the access token is returned", credential.get("access_token") == "header.eyJleHAiOjF9.signature")
 	check("the token type is returned", credential.get("token_type") == "Bearer")
 	check("the relative expiry becomes absolute milliseconds", credential.get("expires_at_msec") == NOW + 300_000)
-	check("the shared store owns the new token", tokens.read() == "handoff-access")
+	check("the shared store owns the new token", tokens.read() == "header.eyJleHAiOjF9.signature")
 	check("the shared store owns its expiry", tokens.expires_at_msec == NOW + 300_000)
+	check("JWT-shaped bearer claims do not override exchange metadata", tokens.expires_at_msec != 1000)
 	check("the exchange uses the configured endpoint", _requests[0].get("url") == EXCHANGE)
 	check("the exchange declares form encoding", _requests[0].get("headers") == PackedStringArray([Handoff.FORM_CONTENT_TYPE]))
 	var form := _query("?" + String(_requests[0].get("body")))
@@ -83,6 +84,14 @@ func _run() -> void:
 	var replay: Dictionary = await handoff.complete(_callback(start["state"]))
 	check("a replay is rejected", replay.get("error") == "unknown_or_consumed_state")
 	check("a replay cannot exchange twice", _requests.size() == 1)
+
+	for reason in [Handoff.END_EXPIRED, Handoff.END_REST_401, Handoff.END_WS_EXPIRED]:
+		tokens.write("rejected", NOW + 300_000)
+		_entropy = [_filled_bytes(20 + _opened.size()), _filled_bytes(40 + _opened.size())]
+		var opens_before := _opened.size()
+		var restarted: Dictionary = handoff.restart_login(reason)
+		check("%s clears the rejected credential" % reason, tokens.read().is_empty())
+		check("%s starts a fresh handoff" % reason, restarted.get("ok") == true and _opened.size() == opens_before + 1)
 
 	# Expiry consumes the verifier without going to the network.
 	_entropy = [_filled_bytes(8), _filled_bytes(9)]
@@ -114,9 +123,99 @@ func _run() -> void:
 	var forbidden_start: Dictionary = forbidden.begin_login()
 	var rejected: Dictionary = await forbidden.complete(_callback(forbidden_start["state"]))
 	check("refresh credentials are rejected", rejected.get("error") == "forbidden_refresh_credential")
-	check("a rejected credential does not replace the session token", tokens.read() == "handoff-access")
+	check("a rejected credential does not replace the session token", tokens.read().is_empty())
+
+	# A durable credential arrives with a null expires_in.
+	_entropy = [_filled_bytes(14), _filled_bytes(15)]
+	_exchange_payload = {"access_token": "durable-access", "token_type": "Bearer", "expires_in": null}
+	var saved := SavedTokens.new()
+	var durable := _coordinator(saved)
+	root.add_child(durable)
+	var durable_start: Dictionary = durable.begin_login()
+	var durable_completed: Dictionary = await durable.complete(_callback(durable_start["state"]))
+	check("a null expires_in completes", durable_completed.get("ok") == true)
+	check("a durable credential has no expiry", durable_completed.get("credential", {}).get("expires_at_msec") == -1)
+	check("a durable credential never expires", saved.expires_at_msec == -1 and not saved.is_expired(NOW * 10))
+	check("the persistent store saved the durable credential", saved.persisted.get("access_token") == "durable-access")
+
+	_entropy = [_filled_bytes(16), _filled_bytes(17)]
+	_exchange_payload = {"access_token": "handoff-access", "token_type": "Bearer"}
+	var missing := _coordinator(TokenStore.new())
+	root.add_child(missing)
+	var missing_start: Dictionary = missing.begin_login()
+	var missing_result: Dictionary = await missing.complete(_callback(missing_start["state"]))
+	check("a missing expires_in is still refused", missing_result.get("error") == "invalid_credential")
+
+	# A finite lifetime is a whole number of seconds. 86400.5
+	# is the case a relative-tolerance comparison would wrongly accept.
+	var entropy_seed := 18
+	for refused_expiry: Variant in [1.5, 86400.5, -1]:
+		_entropy = [_filled_bytes(entropy_seed), _filled_bytes(entropy_seed + 1)]
+		entropy_seed += 2
+		_exchange_payload = {"access_token": "handoff-access", "token_type": "Bearer", "expires_in": refused_expiry}
+		var refusing := _coordinator(TokenStore.new())
+		root.add_child(refusing)
+		var refusing_start: Dictionary = refusing.begin_login()
+		var refusing_result: Dictionary = await refusing.complete(_callback(refusing_start["state"]))
+		check("expires_in %s is refused" % str(refused_expiry), refusing_result.get("error") == "invalid_credential")
+
+	# A second coordinator over a store whose memory was lost stands in for the
+	# next launch: it reuses the saved credential and opens no browser.
+	saved.forget_memory()
+	var relaunch := _coordinator(saved)
+	root.add_child(relaunch)
+	var resumed_signals: Array[Dictionary] = []
+	var failed_signals: Array[String] = []
+	relaunch.completed.connect(func(value: Dictionary) -> void: resumed_signals.append(value))
+	relaunch.failed.connect(func(error: String) -> void: failed_signals.append(error))
+	var opens_before_resume := _opened.size()
+	var resumed: Dictionary = relaunch.resume()
+	check("a saved credential is reused at start", resumed.get("ok") == true)
+	check("reuse makes the credential live", saved.read() == "durable-access")
+	check("reuse opens no browser", _opened.size() == opens_before_resume)
+	check("reuse emits completed like a finished handoff", resumed_signals.size() == 1)
+
+	saved.persisted = JSON.parse_string(JSON.stringify({"access_token": "json-access", "expires_at_msec": NOW + 1000}))
+	saved.forget_memory()
+	check("a JSON-backed store's whole-float expiry is reused", relaunch.resume().get("ok") == true and saved.expires_at_msec == NOW + 1000)
+
+	saved.persisted = {"access_token": "fractional-access", "expires_at_msec": float(NOW) + 1000.5}
+	saved.forget_memory()
+	var fractional_resume: Dictionary = relaunch.resume()
+	check("a fractional saved expiry is not reused", fractional_resume.get("error") == "no_saved_credential")
+	check("a fractional saved expiry is cleared", saved.persisted.is_empty())
+
+	saved.write("expired-access", NOW)
+	saved.forget_memory()
+	var expired_resume: Dictionary = relaunch.resume()
+	check("an expired saved credential is not reused", expired_resume.get("error") == "no_saved_credential")
+	check("an expired saved credential is cleared", saved.persisted.is_empty())
+	var empty_resume: Dictionary = relaunch.resume()
+	check("nothing saved resumes nothing", empty_resume.get("error") == "no_saved_credential")
+	check("finding nothing saved is not a failure", failed_signals.is_empty())
 
 	_report()
+
+
+## Persists across a simulated restart: [method forget_memory] drops what the
+## base class holds in memory, as a new process would.
+class SavedTokens extends "res://addons/haiven/haiven_token_store.gd":
+	var persisted := {}
+
+	func write(next_access_token: String, next_expires_at_msec: int) -> void:
+		super.write(next_access_token, next_expires_at_msec)
+		persisted = {"access_token": next_access_token, "expires_at_msec": next_expires_at_msec}
+
+	func clear() -> void:
+		super.clear()
+		persisted = {}
+
+	func load_credential() -> Dictionary:
+		return persisted.duplicate()
+
+	func forget_memory() -> void:
+		access_token = ""
+		expires_at_msec = -1
 
 
 func _coordinator(tokens: RefCounted, lifetime_msec: int = 15 * 60 * 1000) -> Node:
