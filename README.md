@@ -1,5 +1,47 @@
 # Godot spike — GDScript and .NET bindings
 
+## Install
+
+### GDScript
+
+Download `haiven-godot-addon-0.1.0-preview.1.zip` from the
+[Godot SDK release](https://github.com/haiven-dev/haiven-sdk-godot/releases/tag/v0.1.0-preview.1).
+Extract `addons/haiven` into your project's root and open the project in
+Godot to import it. The release includes `SHA256SUMS`.
+
+To install from source, clone the same tag and copy its `addons/haiven`
+directory into your project.
+
+```sh
+git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/haiven-dev/haiven-sdk-godot.git
+```
+
+### Godot .NET
+
+In Godot 4.5.1 .NET with a .NET 8 project, download
+`haiven-godot-dotnet-portable.tar.gz` from that release. Extract
+`Haiven.Godot.dll` and `Haiven.Sdk.Core.dll` into `lib/haiven/` and add the
+references to your `.csproj`.
+
+```xml
+<ItemGroup>
+  <Reference Include="Haiven.Godot" HintPath="lib/haiven/Haiven.Godot.dll" />
+  <Reference Include="Haiven.Sdk.Core" HintPath="lib/haiven/Haiven.Sdk.Core.dll" />
+</ItemGroup>
+```
+
+Build with `dotnet build`. The DLL archive checksum is in
+`SHA256SUMS.binaries`.
+
+To build the .NET assemblies from source, clone both SDKs side by side and
+build the Godot project.
+
+```sh
+git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/haiven-dev/haiven-sdk-godot.git
+git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/haiven-dev/haiven-sdk-dotnet.git
+dotnet build ./haiven-sdk-godot/Haiven.Godot.csproj
+```
+
 ## The question
 
 **Does the outbound envelope's discriminant survive the crossing into GDScript,
@@ -253,12 +295,10 @@ Each release carries:
 - `SHA256SUMS`: the SHA-256 digest of every asset, in `sha256sum` format. Check
   a download with `sha256sum -c SHA256SUMS`.
 
-The release notes list each asset with its digest and name the source commit
-it was built from. Releases do not attach prebuilt .NET assemblies or a macOS
-player. The C# flavour builds from `Haiven.Godot.csproj` beside a
-haiven-sdk-dotnet checkout (see The .NET flavour above). Earlier releases on
-that page, such as `v0.1.0-preview.1`, predate the pipeline and carry other
-assets, including a prebuilt .NET zip.
+The release notes list the packaged addon and players with their digests and
+source commit. Releases with supplemental binaries include
+`SHA256SUMS.binaries`. See [Godot .NET](#godot-net) above for the .NET
+archive and source build.
 
 Versions follow [Semantic Versioning](https://semver.org/). A release is
 tagged `v<version>`, and in the released addon `version` in
